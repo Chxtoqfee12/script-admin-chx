@@ -19,7 +19,6 @@ local humanoid, hrp
 local flyEnabled, floatEnabled = false, false
 local flyBodyGyro, flyBodyVelocity
 local floatBodyGyro, floatBodyVelocity
-
 local floatUp, floatDown = false, false
 
 -- Setup Character
@@ -118,7 +117,6 @@ local flyToggle = Tab:CreateToggle({
         if humanoid then humanoid.PlatformStand = value end
 
         if flyEnabled then
-            -- Fly Body
             flyBodyGyro = Instance.new("BodyGyro")
             flyBodyGyro.P = 9e4
             flyBodyGyro.MaxTorque = Vector3.new(9e5,9e5,9e5)
@@ -136,7 +134,7 @@ local flyToggle = Tab:CreateToggle({
     end
 })
 
--- Float Toggle (ลอยกลางอากาศ / IE)
+-- Float Toggle (แบบ Infinite Yield)
 local floatToggle = Tab:CreateToggle({
     Name = "Float (IE)",
     CurrentValue = currentValues.Float,
@@ -145,7 +143,7 @@ local floatToggle = Tab:CreateToggle({
         currentValues.Float = value
         floatEnabled = value
         if floatEnabled then
-            showNotification("Float Fly", "กด E เพื่อขึ้น, Q เพื่อลง, W/A/S/D เพื่อเคลื่อนที่บนฟ้า", 5)
+            showNotification("Float Fly", "กด E ขึ้น, Q ลง, W/A/S/D เดินบนฟ้าได้, ปล่อยปุ่มค้างกลางอากาศ", 5)
             -- สร้าง Body สำหรับ Float
             floatBodyGyro = Instance.new("BodyGyro")
             floatBodyGyro.P = 9e4
@@ -216,8 +214,6 @@ UIS.InputBegan:Connect(function(input, processed)
         if input.KeyCode == Enum.KeyCode.Space and currentValues.InfinityJump then
             if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
         end
-
-        -- Float Up/Down
         if floatEnabled then
             if input.KeyCode == Enum.KeyCode.E then floatUp = true end
             if input.KeyCode == Enum.KeyCode.Q then floatDown = true end
@@ -241,10 +237,9 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    local moveDir = Vector3.new(0,0,0)
-
-    -- Fly
+    -- Fly Controller
     if flyEnabled and flyBodyGyro and flyBodyVelocity then
+        local moveDir = Vector3.new(0,0,0)
         if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + hrp.CFrame.LookVector end
         if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - hrp.CFrame.LookVector end
         if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - hrp.CFrame.RightVector end
@@ -260,21 +255,22 @@ RunService.RenderStepped:Connect(function()
         flyBodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + workspace.CurrentCamera.CFrame.LookVector)
     end
 
-    -- Float
+    -- Float Controller แบบ Infinite Yield แก้ล็อกขา
     if floatEnabled and floatBodyGyro and floatBodyVelocity then
-        local floatVector = Vector3.new(0,0,0)
-        if floatUp then floatVector = floatVector + Vector3.new(0,1,0) end
-        if floatDown then floatVector = floatVector - Vector3.new(0,1,0) end
-        if UIS:IsKeyDown(Enum.KeyCode.W) then floatVector = floatVector + hrp.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then floatVector = floatVector - hrp.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then floatVector = floatVector - hrp.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then floatVector = floatVector + hrp.CFrame.RightVector end
+        -- ให้เดินบนฟ้าได้
+        local moveVector = Vector3.new(0,0,0)
+        if floatUp then moveVector = moveVector + Vector3.new(0,1,0) end
+        if floatDown then moveVector = moveVector - Vector3.new(0,1,0) end
+        if UIS:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + hrp.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - hrp.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - hrp.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + hrp.CFrame.RightVector end
 
-        if floatVector.Magnitude > 0 then
-            floatBodyVelocity.Velocity = floatVector.Unit * currentValues.FlySpeed
-        else
-            floatBodyVelocity.Velocity = Vector3.new(0,0,0)
-        end
+        -- ค้างกลางอากาศเมื่อไม่ได้กดปุ่ม
+        floatBodyVelocity.Velocity = moveVector.Magnitude > 0 and moveVector.Unit * currentValues.FlySpeed or Vector3.new(0,0,0)
         floatBodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + workspace.CurrentCamera.CFrame.LookVector)
+
+        -- ปิด PlatformStand เพื่อไม่ล็อกขา
+        humanoid.PlatformStand = false
     end
 end)
