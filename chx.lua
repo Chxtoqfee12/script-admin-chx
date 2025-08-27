@@ -56,7 +56,7 @@ local Tab = Window:CreateTab("Player", 4483362458)
 local Section = Tab:CreateSection("Enhancements")
 
 -- WalkSpeed Slider
-local walkSlider = Tab:CreateSlider({
+Tab:CreateSlider({
     Name = "Walk Speed",
     Range = {16,500},
     Increment = 1,
@@ -70,7 +70,7 @@ local walkSlider = Tab:CreateSlider({
 })
 
 -- JumpPower Slider
-local jumpSlider = Tab:CreateSlider({
+Tab:CreateSlider({
     Name = "Jump Power",
     Range = {50,500},
     Increment = 1,
@@ -84,7 +84,7 @@ local jumpSlider = Tab:CreateSlider({
 })
 
 -- Fly Speed Slider
-local flySlider = Tab:CreateSlider({
+Tab:CreateSlider({
     Name = "Fly Speed",
     Range = {10,500},
     Increment = 5,
@@ -97,7 +97,7 @@ local flySlider = Tab:CreateSlider({
 })
 
 -- Noclip Toggle
-local noclipToggle = Tab:CreateToggle({
+Tab:CreateToggle({
     Name = "Noclip",
     CurrentValue = currentValues.Noclip,
     Flag = "NoclipToggle",
@@ -107,12 +107,11 @@ local noclipToggle = Tab:CreateToggle({
 })
 
 -- Fly Toggle (บินธรรมดา)
-local flyToggle = Tab:CreateToggle({
+Tab:CreateToggle({
     Name = "Fly",
     CurrentValue = currentValues.Fly,
     Flag = "FlyToggle",
     Callback = function(value)
-        currentValues.Fly = value
         flyEnabled = value
         if humanoid then humanoid.PlatformStand = value end
 
@@ -135,89 +134,43 @@ local flyToggle = Tab:CreateToggle({
 })
 
 -- Float Toggle (แบบ Infinite Yield)
-local floatToggle = Tab:CreateToggle({
-    Name = "Float (IE)",
+Tab:CreateToggle({
+    Name = "Float",
     CurrentValue = currentValues.Float,
     Flag = "FloatToggle",
     Callback = function(value)
-        currentValues.Float = value
         floatEnabled = value
+
         if floatEnabled then
-            showNotification("Float Fly", "กด E ขึ้น, Q ลง, W/A/S/D เดินบนฟ้าได้, ปล่อยปุ่มค้างกลางอากาศ", 5)
-            -- สร้าง Body สำหรับ Float
-            floatBodyGyro = Instance.new("BodyGyro")
-            floatBodyGyro.P = 9e4
-            floatBodyGyro.MaxTorque = Vector3.new(9e5,9e5,9e5)
-            floatBodyGyro.CFrame = hrp.CFrame
-            floatBodyGyro.Parent = hrp
+            showNotification("Float", "W/A/S/D เดิน, E ขึ้น, Q ลง", 5)
 
-            floatBodyVelocity = Instance.new("BodyVelocity")
-            floatBodyVelocity.MaxForce = Vector3.new(9e5,9e5,9e5)
-            floatBodyVelocity.Velocity = Vector3.new(0,0,0)
-            floatBodyVelocity.Parent = hrp
+            if not floatBodyVelocity then
+                floatBodyVelocity = Instance.new("BodyVelocity")
+                floatBodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+                floatBodyVelocity.Velocity = Vector3.new(0,0,0)
+                floatBodyVelocity.Parent = hrp
+            end
+
+            if not floatBodyGyro then
+                floatBodyGyro = Instance.new("BodyGyro")
+                floatBodyGyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+                floatBodyGyro.P = 10000
+                floatBodyGyro.CFrame = hrp.CFrame
+                floatBodyGyro.Parent = hrp
+            end
         else
-            if floatBodyGyro then floatBodyGyro:Destroy() floatBodyGyro=nil end
             if floatBodyVelocity then floatBodyVelocity:Destroy() floatBodyVelocity=nil end
+            if floatBodyGyro then floatBodyGyro:Destroy() floatBodyGyro=nil end
         end
     end
 })
 
--- Infinity Jump Toggle
-local infinityToggle = Tab:CreateToggle({
-    Name = "Infinity Jump",
-    CurrentValue = currentValues.InfinityJump,
-    Flag = "InfinityJumpToggle",
-    Callback = function(value)
-        currentValues.InfinityJump = value
-    end
-})
-
--- Reset Button
-Tab:CreateButton({
-    Name = "Reset",
-    Callback = function()
-        currentValues.WalkSpeed = 16
-        currentValues.JumpPower = 50
-        currentValues.FlySpeed = 50
-        currentValues.Noclip = false
-        currentValues.Fly = false
-        currentValues.Float = false
-        currentValues.InfinityJump = false
-        flyEnabled, floatEnabled = false, false
-        floatUp, floatDown = false, false
-
-        if humanoid then
-            humanoid.WalkSpeed = 16
-            humanoid.JumpPower = 50
-            humanoid.PlatformStand = false
-        end
-
-        walkSlider:SetValue(16)
-        jumpSlider:SetValue(50)
-        flySlider:SetValue(50)
-        noclipToggle:SetValue(false)
-        flyToggle:SetValue(false)
-        floatToggle:SetValue(false)
-        infinityToggle:SetValue(false)
-
-        if flyBodyGyro then flyBodyGyro:Destroy() flyBodyGyro=nil end
-        if flyBodyVelocity then flyBodyVelocity:Destroy() flyBodyVelocity=nil end
-        if floatBodyGyro then floatBodyGyro:Destroy() floatBodyGyro=nil end
-        if floatBodyVelocity then floatBodyVelocity:Destroy() floatBodyVelocity=nil end
-    end
-})
-
--- Infinity Jump
+-- Float Input
 UIS.InputBegan:Connect(function(input, processed)
     if processed then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        if input.KeyCode == Enum.KeyCode.Space and currentValues.InfinityJump then
-            if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
-        end
-        if floatEnabled then
-            if input.KeyCode == Enum.KeyCode.E then floatUp = true end
-            if input.KeyCode == Enum.KeyCode.Q then floatDown = true end
-        end
+    if floatEnabled then
+        if input.KeyCode == Enum.KeyCode.E then floatUp = true end
+        if input.KeyCode == Enum.KeyCode.Q then floatDown = true end
     end
 end)
 
@@ -226,51 +179,28 @@ UIS.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.Q then floatDown = false end
 end)
 
--- Fly / Float Controller
+-- Float Controller
 RunService.RenderStepped:Connect(function()
-    if not hrp then return end
+    if floatEnabled and hrp then
+        local move = Vector3.new(0,0,0)
+        local camCF = workspace.CurrentCamera.CFrame
 
-    -- Noclip
-    for _, part in pairs(hrp.Parent:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = not currentValues.Noclip
-        end
-    end
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + camCF.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - camCF.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - camCF.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + camCF.RightVector end
 
-    -- Fly Controller
-    if flyEnabled and flyBodyGyro and flyBodyVelocity then
-        local moveDir = Vector3.new(0,0,0)
-        if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + hrp.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - hrp.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - hrp.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + hrp.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0,1,0) end
-        if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir = moveDir - Vector3.new(0,1,0) end
+        if floatUp then move = move + Vector3.new(0,1,0) end
+        if floatDown then move = move - Vector3.new(0,1,0) end
 
-        if moveDir.Magnitude > 0 then
-            flyBodyVelocity.Velocity = moveDir.Unit * currentValues.FlySpeed
+        if move.Magnitude > 0 then
+            floatBodyVelocity.Velocity = move.Unit * currentValues.FlySpeed
         else
-            flyBodyVelocity.Velocity = Vector3.new(0,0,0)
+            floatBodyVelocity.Velocity = Vector3.new(0,0,0)
         end
-        flyBodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + workspace.CurrentCamera.CFrame.LookVector)
-    end
 
-    -- Float Controller แบบ Infinite Yield แก้ล็อกขา
-    if floatEnabled and floatBodyGyro and floatBodyVelocity then
-        -- ให้เดินบนฟ้าได้
-        local moveVector = Vector3.new(0,0,0)
-        if floatUp then moveVector = moveVector + Vector3.new(0,1,0) end
-        if floatDown then moveVector = moveVector - Vector3.new(0,1,0) end
-        if UIS:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + hrp.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - hrp.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - hrp.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + hrp.CFrame.RightVector end
+        floatBodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + camCF.LookVector)
 
-        -- ค้างกลางอากาศเมื่อไม่ได้กดปุ่ม
-        floatBodyVelocity.Velocity = moveVector.Magnitude > 0 and moveVector.Unit * currentValues.FlySpeed or Vector3.new(0,0,0)
-        floatBodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + workspace.CurrentCamera.CFrame.LookVector)
-
-        -- ปิด PlatformStand เพื่อไม่ล็อกขา
-        humanoid.PlatformStand = false
+        humanoid.PlatformStand = false -- ปล่อยขาเดินได้
     end
 end)
