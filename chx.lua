@@ -34,7 +34,7 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = {Enabled=false}
 })
 
-local Tab = Window:CreateTab("Player", 4483362458)
+local Tab = Window:CreateTab("Main", 4483362458)
 local Section = Tab:CreateSection("Enhancements")
 
 -- WalkSpeed Slider
@@ -177,3 +177,14 @@ Tab:CreateButton({
         disableFloat()
     end
 })
+
+
+
+
+
+
+
+
+
+local Tab = Window:CreateTab("Misc", 1234567890)
+
