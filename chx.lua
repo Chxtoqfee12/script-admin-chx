@@ -66,18 +66,44 @@ local jumpSlider = Tab:CreateSlider({
 })
 
 --gui fly
-Tab:CreateButton({
+local flyLoaded = false -- ตรวจสอบว่ามี GUI โหลดแล้วหรือยัง
+local flyGui = nil -- เก็บตัว GUI ที่โหลดมา
+
+Tab:CreateToggle({
     Name = "Fly function",
-    Callback = function()
-        -- สั่งรันสคริปต์ Fly GUI จาก GitHub
-        local success, err = pcall(function()
-            loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/fly%20gui', true))()
-        end)
-        if not success then
-            warn("ไม่สามารถโหลด Fly GUI ได้: "..tostring(err))
+    CurrentValue = false, -- เริ่มต้นปิด
+    Flag = "FlyFunctionToggle",
+    Callback = function(state)
+        if state then
+            -- เปิด Fly GUI
+            if not flyLoaded then
+                local success, err = pcall(function()
+                    loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/fly%20gui', true))()
+                end)
+                if not success then
+                    warn("ไม่สามารถโหลด Fly GUI ได้: "..tostring(err))
+                    return
+                end
+
+                -- รอให้ GUI ปรากฏ
+                flyGui = player:WaitForChild("PlayerGui"):WaitForChild("main")
+                flyGui.Enabled = true
+                flyLoaded = true
+            else
+                -- ถ้าโหลดแล้ว แค่เปิด GUI
+                if flyGui then
+                    flyGui.Enabled = true
+                end
+            end
+        else
+            -- ปิด GUI
+            if flyGui then
+                flyGui.Enabled = false
+            end
         end
     end
 })
+
 
 -- Noclip Toggle
 local noclipToggle = Tab:CreateToggle({
