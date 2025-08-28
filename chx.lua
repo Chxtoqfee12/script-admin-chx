@@ -293,6 +293,12 @@ followTab:CreateToggle({
 Players.PlayerAdded:Connect(function() playerDropdown:Set(GetPlayerList()) end)
 Players.PlayerRemoving:Connect(function() playerDropdown:Set(GetPlayerList()) end)
 
+
+
+
+
+
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
@@ -306,6 +312,7 @@ local espEnabled = false
 local showName = true
 local showDistance = true
 local showBox = true
+local textSize = 14 -- ขนาดเริ่มต้น
 
 local ESPs = {}
 
@@ -318,28 +325,32 @@ local function createESP(plr)
     -- BillboardGui for Name + Distance
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ESP_"..plr.Name
-    billboard.Size = UDim2.new(0, 100, 0, 50)
+    billboard.Size = UDim2.new(0, 200, 0, 50)
     billboard.Adornee = root
     billboard.AlwaysOnTop = true
     billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.Enabled = false -- ปิดไว้ก่อน
     billboard.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 1, 0)
     label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255,0,0)
-    label.TextScaled = true
+    label.TextColor3 = Color3.fromRGB(255, 0, 0)
+    label.TextScaled = false -- ปรับให้ Slider ใช้ได้
     label.TextStrokeTransparency = 0
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = textSize
     label.Parent = billboard
 
     -- Box around character
     local box = Instance.new("BoxHandleAdornment")
     box.Adornee = root
     box.AlwaysOnTop = true
-    box.Size = Vector3.new(2, 5, 1) -- ปรับขนาดตามตัวละคร
-    box.Color3 = Color3.fromRGB(255,0,0)
+    box.Size = Vector3.new(2, 5, 1)
+    box.Color3 = Color3.fromRGB(255, 0, 0)
     box.Transparency = 0.5
-    box.Parent = root
+    box.Visible = false -- ปิดไว้ก่อน
+    box.Parent = workspace
 
     ESPs[plr] = {Billboard = billboard, Label = label, Box = box}
 end
@@ -361,6 +372,11 @@ RunService.RenderStepped:Connect(function()
             if root then
                 local label = data.Label
                 local box = data.Box
+                local billboard = data.Billboard
+
+                -- เปิด/ปิด GUI ตาม Toggle
+                billboard.Enabled = showName or showDistance
+                box.Visible = showBox
 
                 -- Update text
                 local text = ""
@@ -370,9 +386,7 @@ RunService.RenderStepped:Connect(function()
                     text = text.."("..math.floor(dist).."m)"
                 end
                 label.Text = text
-
-                -- Box visibility
-                box.Visible = showBox
+                label.TextSize = textSize
             else
                 removeESP(plr)
             end
@@ -380,14 +394,13 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Add ESP to existing players
-for _, plr in pairs(Players:GetPlayers()) do
+-- Add ESP to players
+Players.PlayerAdded:Connect(function(plr)
     createESP(plr)
-end
-
--- Add ESP to new players
-Players.PlayerAdded:Connect(createESP)
-Players.PlayerRemoving:Connect(removeESP)
+end)
+Players.PlayerRemoving:Connect(function(plr)
+    removeESP(plr)
+end)
 
 -- GUI Toggles
 espTab:CreateToggle({
@@ -395,16 +408,41 @@ espTab:CreateToggle({
     CurrentValue = false,
     Callback = function(val)
         espEnabled = val
-        if not val then
-            for plr,_ in pairs(ESPs) do removeESP(plr) end
+        if val then
+            for _, plr in pairs(Players:GetPlayers()) do
+                if not ESPs[plr] then
+                    createESP(plr)
+                end
+            end
         else
-            for _, plr in pairs(Players:GetPlayers()) do createESP(plr) end
+            for plr,_ in pairs(ESPs) do removeESP(plr) end
         end
     end
 })
 
 espTab:CreateToggle({Name = "Show Name", CurrentValue = true, Callback = function(val) showName = val end})
 espTab:CreateToggle({Name = "Show Distance", CurrentValue = true, Callback = function(val) showDistance = val end})
+espTab:CreateToggle({Name = "Show Box", CurrentValue = true, Callback = function(val) showBox = val end})
+
+-- Slider ปรับขนาดตัวอักษร
+espTab:CreateSlider({
+    Name = "Text Size",
+    Range = {8, 40},
+    Increment = 1,
+    Suffix = "px",
+    CurrentValue = textSize,
+    Flag = "TextSizeSlider",
+    Callback = function(val)
+        textSize = val
+    end
+})
+
+
+
+
+
+
+
 
 
 
@@ -412,37 +450,4 @@ espTab:CreateToggle({Name = "Show Distance", CurrentValue = true, Callback = fun
 
 -- Tab Misc
 local miscTab = Window:CreateTab("Misc", "cog")
-
--- Variables
-local noclipEnabled = false
-local player = game.Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local character = player.Character or player.CharacterAdded:Wait()
-
--- Setup character on respawn
-local function setupCharacter(char)
-    character = char
-end
-
-player.CharacterAdded:Connect(setupCharacter)
-
--- Noclip Toggle
-miscTab:CreateToggle({
-    Name = "Noclip",
-    CurrentValue = false,
-    Callback = function(val)
-        noclipEnabled = val
-    end
-})
-
--- Noclip Logic
-RunService.Stepped:Connect(function()
-    if noclipEnabled and character then
-        for _, part in ipairs(character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-    end
-end)
 
