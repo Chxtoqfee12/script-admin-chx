@@ -1,4 +1,4 @@
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/chx.lib'))()
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
 local player = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -7,9 +7,9 @@ local RunService = game:GetService("RunService")
 local currentValues = {
     WalkSpeed = 16,
     JumpPower = 50,
-    Speed = 50,
-    Fly = false,         -- เพิ่ม Fly หรือชื่อที่ต้องใช้
+    FlySpeed = 50,
     Noclip = false,
+    Fly = false,
     InfinityJump = false,
     Float = false,
 }
@@ -34,7 +34,7 @@ end)
 local Window = Rayfield:CreateWindow({
     Name = "Player Enhancements",
     LoadingTitle = "Delta Script",
-    LoadingSubtitle = " / Speed / Jump / Noclip / Infinity Jump / Float /",
+    LoadingSubtitle = "Fly / Speed / Jump / Noclip / Infinity Jump / Float /",
     Theme = "Default",
     ConfigurationSaving = {Enabled=false}
 })
@@ -70,16 +70,16 @@ local jumpSlider = Tab:CreateSlider({
     end
 })
 
---  Speed Slider
-local Slider = Tab:CreateSlider({
-    Name = " Speed",
+-- Fly Speed Slider
+local flySlider = Tab:CreateSlider({
+    Name = "Fly Speed",
     Range = {10,500},
     Increment = 5,
     Suffix = "Speed",
-    CurrentValue = currentValues.Speed,
-    Flag = "SpeedSlider",
+    CurrentValue = currentValues.FlySpeed,
+    Flag = "FlySpeedSlider",
     Callback = function(value)
-        currentValues.Speed = value
+        currentValues.FlySpeed = value
     end
 })
 
@@ -94,86 +94,69 @@ local noclipToggle = Tab:CreateToggle({
 })
 
 ------------------------------------------------------
---  (WASD + Q/E + Speed)
+-- Fly (PC + Mobile รองรับ WASD/จอย + Q/E)
 ------------------------------------------------------
-------------------------------------------------------
---  (PC + Mobile รองรับ WASD/จอย + Q/E)
-------------------------------------------------------
-local ing = false
-local BV, BG
-local Conn
+local flying = false
+local flyBV, flyBG
+local flyConn
 
-local function enable()
-    if ing then return end
-    ing = true
+local function enableFly()
+    if flying then return end
+    flying = true
 
-    BV = Instance.new("BodyVelocity")
-    BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-    BV.Velocity = Vector3.zero
-    BV.Parent = hrp
+    flyBV = Instance.new("BodyVelocity")
+    flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    flyBV.Velocity = Vector3.zero
+    flyBV.Parent = hrp
 
-    BG = Instance.new("BodyGyro")
-    BG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
-    BG.CFrame = hrp.CFrame
-    BG.Parent = hrp
+    flyBG = Instance.new("BodyGyro")
+    flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    flyBG.CFrame = hrp.CFrame
+    flyBG.Parent = hrp
 
     humanoid.PlatformStand = true
 
-    Conn = RunService.RenderStepped:Connect(function()
-        if not ing then return end
+    flyConn = RunService.RenderStepped:Connect(function()
+        if not flying then return end
         local cam = workspace.CurrentCamera
         local move = Vector3.zero
 
-        -- ✅ คำนวณทิศทางจากกล้อง
-        local look = cam.CFrame.LookVector
-        local right = cam.CFrame.RightVector
-
-        -- ✅ PC (WASD)
-        if UIS:IsKeyDown(Enum.KeyCode.W) then move += look end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then move -= look end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then move -= right end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then move += right end
-
-        -- ✅ Q/E = ขึ้น/ลง
-        if UIS:IsKeyDown(Enum.KeyCode.E) then move += Vector3.new(0,1,0) end
-        if UIS:IsKeyDown(Enum.KeyCode.Q) then move -= Vector3.new(0,1,0) end
-
-        -- ✅ Mobile (Thumbstick Move)
+        -- ✅ รองรับทั้งมือถือ (Thumbstick) และ PC (WASD)
         local moveVec = humanoid.MoveDirection
         if moveVec.Magnitude > 0 then
             move += cam.CFrame:VectorToWorldSpace(moveVec)
         end
 
-        -- ✅ ปรับความเร็ว
+        -- Q/E = ขึ้น/ลง
+        if UIS:IsKeyDown(Enum.KeyCode.E) then move += Vector3.new(0,1,0) end
+        if UIS:IsKeyDown(Enum.KeyCode.Q) then move -= Vector3.new(0,1,0) end
+
         if move.Magnitude > 0 then
-            move = move.Unit * currentValues.Speed
+            move = move.Unit * currentValues.FlySpeed
         end
 
-        BV.Velocity = move
-        BG.CFrame = cam.CFrame
+        flyBV.Velocity = move
+        flyBG.CFrame = cam.CFrame
     end)
 end
 
-local function disable()
-    ing = false
-    if Conn then Conn:Disconnect() Conn = nil end
-    if BV then BV:Destroy() BV = nil end
-    if BG then BG:Destroy() BG = nil end
+local function disableFly()
+    flying = false
+    if flyConn then flyConn:Disconnect() flyConn = nil end
+    if flyBV then flyBV:Destroy() flyBV = nil end
+    if flyBG then flyBG:Destroy() flyBG = nil end
     if humanoid then humanoid.PlatformStand = false end
 end
 
-local speedToggle = Tab:CreateToggle({
-    Name = "Fly / Speed",
+local flyToggle = Tab:CreateToggle({
+    Name = "Fly",
     CurrentValue = currentValues.Fly,
     Flag = "FlyToggle",
     Callback = function(value)
         currentValues.Fly = value
-        if value then enable() else disable() end
+        if value then enableFly() else disableFly() end
     end
 })
-
-------------------------------------------------------
-
 ------------------------------------------------------
 
 -- Infinity Jump Toggle
@@ -276,9 +259,9 @@ Tab:CreateButton({
 	Callback = function()
 		currentValues.WalkSpeed = 16
 		currentValues.JumpPower = 50
-		currentValues.Speed = 50
+		currentValues.FlySpeed = 50
 		currentValues.Noclip = false
-		currentValues. = false
+		currentValues.Fly = false
 		currentValues.InfinityJump = false
 		currentValues.Float = false
 
@@ -290,14 +273,13 @@ Tab:CreateButton({
 
 		walkSlider:SetValue(16)
 		jumpSlider:SetValue(50)
-		Slider:SetValue(50)
+		flySlider:SetValue(50)
 		noclipToggle:SetValue(false)
-		Toggle:SetValue(false)
+		flyToggle:SetValue(false)
 		infinityToggle:SetValue(false)
 		floatToggle:SetValue(false)
 
 		disableFloat()
-		disable()
+		disableFly()
 	end
 })
-return Rayfield
