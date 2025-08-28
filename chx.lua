@@ -12,7 +12,6 @@ local currentValues = {
     Fly = false,
     InfinityJump = false,
     Float = false,
-    FlyFling = false
 }
 
 local humanoid, hrp, character
@@ -35,7 +34,7 @@ end)
 local Window = Rayfield:CreateWindow({
     Name = "Player Enhancements",
     LoadingTitle = "Delta Script",
-    LoadingSubtitle = "Fly / Speed / Jump / Noclip / Infinity Jump / Float / FlyFling",
+    LoadingSubtitle = "Fly / Speed / Jump / Noclip / Infinity Jump / Float /",
     Theme = "Default",
     ConfigurationSaving = {Enabled=false}
 })
@@ -94,16 +93,71 @@ local noclipToggle = Tab:CreateToggle({
     end
 })
 
--- Fly Toggle (แบบ PlatformStand)
+------------------------------------------------------
+-- Fly (WASD + Q/E + FlySpeed)
+------------------------------------------------------
+local flying = false
+local flyBV, flyBG
+local flyConn
+
+local function enableFly()
+    if flying then return end
+    flying = true
+
+    flyBV = Instance.new("BodyVelocity")
+    flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    flyBV.Velocity = Vector3.zero
+    flyBV.Parent = hrp
+
+    flyBG = Instance.new("BodyGyro")
+    flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    flyBG.CFrame = hrp.CFrame
+    flyBG.Parent = hrp
+
+    humanoid.PlatformStand = true
+
+    flyConn = RunService.RenderStepped:Connect(function()
+        if not flying then return end
+        local cam = workspace.CurrentCamera
+        local move = Vector3.zero
+
+        local look = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z).Unit
+        local right = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z).Unit
+
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move += look end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move -= look end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move -= right end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move += right end
+        if UIS:IsKeyDown(Enum.KeyCode.E) then move += Vector3.new(0,1,0) end
+        if UIS:IsKeyDown(Enum.KeyCode.Q) then move -= Vector3.new(0,1,0) end
+
+        if move.Magnitude > 0 then
+            move = move.Unit * currentValues.FlySpeed
+        end
+
+        flyBV.Velocity = move
+        flyBG.CFrame = cam.CFrame
+    end)
+end
+
+local function disableFly()
+    flying = false
+    if flyConn then flyConn:Disconnect() flyConn = nil end
+    if flyBV then flyBV:Destroy() flyBV = nil end
+    if flyBG then flyBG:Destroy() flyBG = nil end
+    if humanoid then humanoid.PlatformStand = false end
+end
+
 local flyToggle = Tab:CreateToggle({
     Name = "Fly",
     CurrentValue = currentValues.Fly,
     Flag = "FlyToggle",
     Callback = function(value)
         currentValues.Fly = value
-        if humanoid then humanoid.PlatformStand = value end
+        if value then enableFly() else disableFly() end
     end
 })
+------------------------------------------------------
 
 -- Infinity Jump Toggle
 local infinityToggle = Tab:CreateToggle({
@@ -181,52 +235,6 @@ local floatToggle = Tab:CreateToggle({
     end
 })
 
--- FlyFling
-local flyFlingEnabled = false
-local flyFlingConn
-
-local function enableFlyFling(speed)
-	if flyFlingEnabled then return end
-	flyFlingEnabled = true
-	local flySpeed = speed or currentValues.FlySpeed
-
-	flyFlingConn = RunService.Heartbeat:Connect(function()
-		if character and hrp and humanoid then
-			local moveVector = Vector3.new()
-			if UIS:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + workspace.CurrentCamera.CFrame.LookVector end
-			if UIS:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - workspace.CurrentCamera.CFrame.LookVector end
-			if UIS:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - workspace.CurrentCamera.CFrame.RightVector end
-			if UIS:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + workspace.CurrentCamera.CFrame.RightVector end
-			if UIS:IsKeyDown(Enum.KeyCode.E) then moveVector = moveVector + Vector3.new(0,1,0) end
-			if UIS:IsKeyDown(Enum.KeyCode.Q) then moveVector = moveVector - Vector3.new(0,1,0) end
-
-			if moveVector.Magnitude > 0 then
-				hrp.Velocity = moveVector.Unit * flySpeed
-			else
-				hrp.Velocity = Vector3.new()
-			end
-		else
-			disableFlyFling()
-		end
-	end)
-end
-
-local function disableFlyFling()
-	flyFlingEnabled = false
-	if flyFlingConn then flyFlingConn:Disconnect() flyFlingConn = nil end
-	if hrp then hrp.Velocity = Vector3.new() end
-end
-
-local flyFlingToggle = Tab:CreateToggle({
-	Name = "Fly Fling",
-	CurrentValue = currentValues.FlyFling,
-	Flag = "FlyFlingToggle",
-	Callback = function(value)
-		currentValues.FlyFling = value
-		if value then enableFlyFling(currentValues.FlySpeed) else disableFlyFling() end
-	end
-})
-
 -- Infinity Jump Logic
 UIS.JumpRequest:Connect(function()
 	if currentValues.InfinityJump and humanoid then
@@ -256,7 +264,6 @@ Tab:CreateButton({
 		currentValues.Fly = false
 		currentValues.InfinityJump = false
 		currentValues.Float = false
-		currentValues.FlyFling = false
 
 		if humanoid then
 			humanoid.WalkSpeed = 16
@@ -271,9 +278,8 @@ Tab:CreateButton({
 		flyToggle:SetValue(false)
 		infinityToggle:SetValue(false)
 		floatToggle:SetValue(false)
-		flyFlingToggle:SetValue(false)
 
 		disableFloat()
-		disableFlyFling()
+		disableFly()
 	end
 })
