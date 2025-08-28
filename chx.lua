@@ -35,7 +35,7 @@ local Window = Rayfield:CreateWindow({
 })
 
 local Tab = Window:CreateTab("Main", 4483362458)
-local Section = Tab:CreateSection("Enhancements")
+local Section = Tab:CreateSection("Main")
 
 -- WalkSpeed Slider
 local walkSlider = Tab:CreateSlider({
@@ -186,7 +186,7 @@ Tab:CreateButton({
 
 
 
-
+local Section = Tab:CreateSection("Follow player")
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -292,6 +292,40 @@ followTab:CreateToggle({
 -- อัปเดตรายชื่ออัตโนมัติเมื่อมีผู้เล่นเข้า/ออก
 Players.PlayerAdded:Connect(function() playerDropdown:Set(GetPlayerList()) end)
 Players.PlayerRemoving:Connect(function() playerDropdown:Set(GetPlayerList()) end)
+Tab:CreateToggle({
+    Name = "Fly function",
+    CurrentValue = false, -- เริ่มต้นปิด
+    Flag = "FlyFunctionToggle",
+    Callback = function(state)
+        if state then
+            -- เปิด Fly GUI
+            if not flyLoaded then
+                local success, err = pcall(function()
+                    loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/fly%20gui', true))()
+                end)
+                if not success then
+                    warn("ไม่สามารถโหลด Fly GUI ได้: "..tostring(err))
+                    return
+                end
+
+                -- รอให้ GUI ปรากฏ
+                flyGui = player:WaitForChild("PlayerGui"):WaitForChild("main")
+                flyGui.Enabled = true
+                flyLoaded = true
+            else
+                -- ถ้าโหลดแล้ว แค่เปิด GUI
+                if flyGui then
+                    flyGui.Enabled = true
+                end
+            end
+        else
+            -- ปิด GUI
+            if flyGui then
+                flyGui.Enabled = false
+            end
+        end
+    end
+})
 
 
 
@@ -299,6 +333,9 @@ Players.PlayerRemoving:Connect(function() playerDropdown:Set(GetPlayerList()) en
 
 
 
+
+
+local Section = Tab:CreateSection("ESP")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
@@ -449,5 +486,6 @@ espTab:CreateSlider({
 
 
 -- Tab Misc
+local Section = Tab:CreateSection("Misc")
 local miscTab = Window:CreateTab("Misc", "cog")
 
