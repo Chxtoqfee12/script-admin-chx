@@ -301,7 +301,7 @@ Tab:CreateToggle({
             -- เปิด Fly GUI
             if not flyLoaded then
                 local success, err = pcall(function()
-                    loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/fly%20gui', true))()
+                    loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/jerk', true))()
                 end)
                 if not success then
                     warn("ไม่สามารถโหลด Fly GUI ได้: "..tostring(err))
