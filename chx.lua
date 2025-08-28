@@ -186,7 +186,7 @@ Tab:CreateButton({
 
 
 
-local Section = Tab:CreateSection("Follow player")
+
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -512,6 +512,5 @@ espTab:CreateSlider({
 
 
 -- Tab Misc
-local Section = Tab:CreateSection("Misc")
 local miscTab = Window:CreateTab("Misc", "cog")
 
