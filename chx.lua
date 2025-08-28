@@ -27,9 +27,9 @@ player.CharacterAdded:Connect(setupCharacter)
 
 -- Window
 local Window = Rayfield:CreateWindow({
-    Name = "Player Enhancements",
-    LoadingTitle = "Delta Script",
-    LoadingSubtitle = "Fly / Speed / Jump / Noclip / Infinity Jump / Float /",
+    Name = "Chx Script",
+    LoadingTitle = "Chx Script",
+    LoadingSubtitle = "Fly / Speed boost / Jump boost / Noclip /",
     Theme = "Default",
     ConfigurationSaving = {Enabled=false}
 })
