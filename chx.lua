@@ -190,16 +190,20 @@ local Section = Tab:CreateSection("Follow player")
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-
 -- Tab หลัก
-local followTab = Window:CreateTab("Follow", "compass")
+local Players = game:GetService("Players")
 
 -- ตัวแปรหลัก
 local following = false
 local targetPlayer = nil
+local followConnection = nil
+local noclipConnection = nil
+local flyAnimationEnabled = false
+local followAnimation = nil -- Animation object
+local flyLoaded = false
+local flyGui = nil
 
 -- ฟังก์ชันเปิด/ปิด noclip
-local noclipConnection
 local function setNoclip(state)
     if state then
         noclipConnection = RunService.Stepped:Connect(function()
@@ -220,12 +224,34 @@ local function setNoclip(state)
 end
 
 -- ฟังก์ชันติดตาม
-local followConnection
 local function startFollowing()
     if targetPlayer and targetPlayer.Character then
         followConnection = RunService.Heartbeat:Connect(function()
             if player.Character and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 player.Character:MoveTo(targetPlayer.Character.HumanoidRootPart.Position + Vector3.new(2,0,2))
+
+                -- เล่น Animation ถ้า toggle เปิด
+                if flyAnimationEnabled and followAnimation then
+                    local humanoid = player.Character:FindFirstChild("Humanoid")
+                    if humanoid then
+                        local animator = humanoid:FindFirstChildOfClass("Animator")
+                        if not animator then
+                            animator = Instance.new("Animator")
+                            animator.Parent = humanoid
+                        end
+                        -- ตรวจสอบว่ากำลังเล่นหรือไม่
+                        local isPlaying = false
+                        for _, anim in pairs(animator:GetPlayingAnimationTracks()) do
+                            if anim.Animation == followAnimation then
+                                isPlaying = true
+                                break
+                            end
+                        end
+                        if not isPlaying then
+                            animator:LoadAnimation(followAnimation):Play()
+                        end
+                    end
+                end
             end
         end)
     end
@@ -250,6 +276,7 @@ local function GetPlayerList()
 end
 
 -- Dropdown รายชื่อผู้เล่น
+local followTab = Window:CreateTab("Follow", "compass")
 local playerDropdown = followTab:CreateDropdown({
     Name = "Select Player",
     Options = GetPlayerList(),
@@ -289,44 +316,44 @@ followTab:CreateToggle({
     end,
 })
 
--- อัปเดตรายชื่ออัตโนมัติเมื่อมีผู้เล่นเข้า/ออก
-Players.PlayerAdded:Connect(function() playerDropdown:Set(GetPlayerList()) end)
-Players.PlayerRemoving:Connect(function() playerDropdown:Set(GetPlayerList()) end)
-Tab:CreateToggle({
-    Name = "Fly function",
-    CurrentValue = false, -- เริ่มต้นปิด
+-- Toggle Animation
+followTab:CreateToggle({
+    Name = "Animation",
+    CurrentValue = false,
     Flag = "FlyFunctionToggle",
     Callback = function(state)
+        flyAnimationEnabled = state
+
+        -- โหลด GUI หากต้องการ
         if state then
-            -- เปิด Fly GUI
             if not flyLoaded then
                 local success, err = pcall(function()
                     loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/jerk', true))()
                 end)
                 if not success then
-                    warn("ไม่สามารถโหลด Fly GUI ได้: "..tostring(err))
+                    warn("ไม่สามารถโหลด GUI ได้: "..tostring(err))
                     return
                 end
 
-                -- รอให้ GUI ปรากฏ
                 flyGui = player:WaitForChild("PlayerGui"):WaitForChild("main")
                 flyGui.Enabled = true
                 flyLoaded = true
             else
-                -- ถ้าโหลดแล้ว แค่เปิด GUI
-                if flyGui then
-                    flyGui.Enabled = true
-                end
+                if flyGui then flyGui.Enabled = true end
             end
         else
-            -- ปิด GUI
-            if flyGui then
-                flyGui.Enabled = false
-            end
+            if flyGui then flyGui.Enabled = false end
         end
     end
 })
 
+-- โหลด Animation ตัวอย่าง (แก้ AssetId เป็นของคุณเอง)
+followAnimation = Instance.new("Animation")
+followAnimation.AnimationId = "rbxassetid://1234567890"
+
+-- รีเฟรช Dropdown เมื่อผู้เล่นเข้าหรือออก
+Players.PlayerAdded:Connect(function() playerDropdown:Set(GetPlayerList()) end)
+Players.PlayerRemoving:Connect(function() playerDropdown:Set(GetPlayerList()) end)
 
 
 
@@ -335,8 +362,7 @@ Tab:CreateToggle({
 
 
 
-local Section = Tab:CreateSection("ESP")
-local Players = game:GetService("Players")
+
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
