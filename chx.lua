@@ -185,25 +185,77 @@ Tab:CreateButton({
 
 
 
-
-
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
--- Tab หลัก
-local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 
--- ตัวแปรหลัก
+-- ตรวจสอบ Rig
+local character = player.Character or player.CharacterAdded:Wait()
+local isR6 = character:FindFirstChild("Torso") ~= nil
+
+-- ฟังก์ชัน Notification
+local function showNotification(message)
+    local notificationGui = Instance.new("ScreenGui")
+    notificationGui.Name = "NotificationGui"
+    notificationGui.Parent = game.CoreGui
+
+    local notificationFrame = Instance.new("Frame")
+    notificationFrame.Size = UDim2.new(0, 300, 0, 50)
+    notificationFrame.Position = UDim2.new(0.5, -150, 1, -60)
+    notificationFrame.AnchorPoint = Vector2.new(0.5, 1)
+    notificationFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 255)
+    notificationFrame.BorderSizePixel = 0
+    notificationFrame.Parent = notificationGui
+
+    local uicorner = Instance.new("UICorner")
+    uicorner.CornerRadius = UDim.new(0, 10)
+    uicorner.Parent = notificationFrame
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -20, 1, 0)
+    textLabel.Position = UDim2.new(0, 10, 0, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = message.." | by pyst"
+    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.TextSize = 18
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.Parent = notificationFrame
+
+    notificationFrame.BackgroundTransparency = 1
+    textLabel.TextTransparency = 1
+
+    TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+    TweenService:Create(textLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+
+    task.delay(5, function()
+        TweenService:Create(notificationFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
+        TweenService:Create(textLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
+        task.delay(0.5, function() notificationGui:Destroy() end)
+    end)
+end
+
+-- แสดง Notification ตาม Rig
+if isR6 then
+    showNotification("🌟 R6 detected!")
+else
+    showNotification("✨ R15 detected!")
+end
+
+-- UI Window (สมมติ Window object มีอยู่)
+local followTab = Window:CreateTab("Follow & Scripts", "compass")
+
+-- ================== ฟังก์ชัน Follow/Noclip ==================
 local following = false
 local targetPlayer = nil
 local followConnection = nil
 local noclipConnection = nil
 local flyAnimationEnabled = false
-local followAnimation = nil -- Animation object
+local followAnimation = nil
 local flyLoaded = false
 local flyGui = nil
 
--- ฟังก์ชันเปิด/ปิด noclip
 local function setNoclip(state)
     if state then
         noclipConnection = RunService.Stepped:Connect(function()
@@ -223,23 +275,27 @@ local function setNoclip(state)
     end
 end
 
--- ฟังก์ชันติดตาม
 local function startFollowing()
     if targetPlayer and targetPlayer.Character then
         followConnection = RunService.Heartbeat:Connect(function()
-            if player.Character and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                player.Character:MoveTo(targetPlayer.Character.HumanoidRootPart.Position + Vector3.new(2,0,2))
+            if player.Character and targetPlayer.Character then
+                local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local char = player.Character
+                local root = char:FindFirstChild("HumanoidRootPart")
 
-                -- เล่น Animation ถ้า toggle เปิด
+                if targetRoot and root then
+                    local offsetPos = targetRoot.Position + (targetRoot.CFrame.LookVector * -2)
+                    root.CFrame = CFrame.lookAt(offsetPos, targetRoot.Position)
+                end
+
                 if flyAnimationEnabled and followAnimation then
-                    local humanoid = player.Character:FindFirstChild("Humanoid")
+                    local humanoid = char:FindFirstChild("Humanoid")
                     if humanoid then
                         local animator = humanoid:FindFirstChildOfClass("Animator")
                         if not animator then
                             animator = Instance.new("Animator")
                             animator.Parent = humanoid
                         end
-                        -- ตรวจสอบว่ากำลังเล่นหรือไม่
                         local isPlaying = false
                         for _, anim in pairs(animator:GetPlayingAnimationTracks()) do
                             if anim.Animation == followAnimation then
@@ -264,7 +320,6 @@ local function stopFollowing()
     end
 end
 
--- ฟังก์ชันรีเฟรชผู้เล่น
 local function GetPlayerList()
     local names = {}
     for _, plr in pairs(Players:GetPlayers()) do
@@ -275,8 +330,7 @@ local function GetPlayerList()
     return names
 end
 
--- Dropdown รายชื่อผู้เล่น
-local followTab = Window:CreateTab("Follow", "compass")
+-- ================== Follow Dropdown & Toggles ==================
 local playerDropdown = followTab:CreateDropdown({
     Name = "Select Player",
     Options = GetPlayerList(),
@@ -291,7 +345,6 @@ local playerDropdown = followTab:CreateDropdown({
     end,
 })
 
--- ปุ่มรีเฟรชรายชื่อ
 followTab:CreateButton({
     Name = "Refresh Player List",
     Callback = function()
@@ -299,7 +352,6 @@ followTab:CreateButton({
     end
 })
 
--- Toggle เริ่ม/หยุดติดตาม
 followTab:CreateToggle({
     Name = "Follow Player",
     CurrentValue = false,
@@ -316,25 +368,18 @@ followTab:CreateToggle({
     end,
 })
 
--- Toggle Animation
 followTab:CreateToggle({
     Name = "Animation",
     CurrentValue = false,
     Flag = "FlyFunctionToggle",
     Callback = function(state)
         flyAnimationEnabled = state
-
-        -- โหลด GUI หากต้องการ
         if state then
             if not flyLoaded then
                 local success, err = pcall(function()
                     loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/jerk', true))()
                 end)
-                if not success then
-                    warn("ไม่สามารถโหลด GUI ได้: "..tostring(err))
-                    return
-                end
-
+                if not success then warn("ไม่สามารถโหลด GUI: "..tostring(err)) return end
                 flyGui = player:WaitForChild("PlayerGui"):WaitForChild("main")
                 flyGui.Enabled = true
                 flyLoaded = true
@@ -347,13 +392,34 @@ followTab:CreateToggle({
     end
 })
 
--- โหลด Animation ตัวอย่าง (แก้ AssetId เป็นของคุณเอง)
 followAnimation = Instance.new("Animation")
 followAnimation.AnimationId = "rbxassetid://1234567890"
 
--- รีเฟรช Dropdown เมื่อผู้เล่นเข้าหรือออก
 Players.PlayerAdded:Connect(function() playerDropdown:Set(GetPlayerList()) end)
 Players.PlayerRemoving:Connect(function() playerDropdown:Set(GetPlayerList()) end)
+
+-- ================== Script Buttons ==================
+local buttons = {
+    {name = "🎯 Bang V2", r6 = "https://pastebin.com/raw/aPSHMV6K", r15 = "https://pastebin.com/raw/1ePMTt9n"},
+    {name = "🎉 Get Banged", r6 = "https://pastebin.com/raw/zHbw7ND1", r15 = "https://pastebin.com/raw/7hvcjDnW"},
+    {name = "💥 Suck", r6 = "https://pastebin.com/raw/SymCfnAW", r15 = "https://pastebin.com/raw/p8yxRfr4"},
+    {name = "⚡ Jerk", r6 = "https://pastefy.app/wa3v2Vgm/raw", r15 = "https://pastefy.app/YZoglOyJ/raw"}
+}
+
+for _, buttonData in ipairs(buttons) do
+    followTab:CreateButton({
+        Name = buttonData.name,
+        Callback = function()
+            if isR6 then
+                loadstring(game:HttpGet(buttonData.r6))()
+            else
+                loadstring(game:HttpGet(buttonData.r15))()
+            end
+        end
+    })
+end
+
+
 
 
 
