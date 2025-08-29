@@ -237,7 +237,7 @@ local function showNotification(message)
 end
 
 -- UI Window (สมมติ Window object มีอยู่)
-local followTab = Window:CreateTab("Follow & Scripts", "compass")
+local followTab = Window:CreateTab("Follow player", "compass")
 
 -- ================== ฟังก์ชัน Follow/Noclip ==================
 local following = false
@@ -369,8 +369,8 @@ Players.PlayerRemoving:Connect(function() playerDropdown:Set(GetPlayerList()) en
 
 -- ================== Script Buttons ==================
 local buttons = {
-    {name = "🎯 Bang V2", r6 = "https://pastebin.com/raw/n9XXsPRW", r15 = "https://pastebin.com/raw/Rsg7hyWE"},
-    {name = "🎉 Get Banged", r6 = "https://pastebin.com/raw/xGA5WRef", r15 = "https://pastebin.com/raw/6Arx6t4V"},
+    {name = "🎯 Bang", r6 = "https://pastebin.com/raw/n9XXsPRW", r15 = "https://pastebin.com/raw/Rsg7hyWE"},
+    {name = "🎉 Banged", r6 = "https://pastebin.com/raw/xGA5WRef", r15 = "https://pastebin.com/raw/6Arx6t4V"},
     {name = "💥 Suck", r6 = "https://pastebin.com/raw/2dwnBT3i", r15 = "https://pastebin.com/raw/mH7BTYcB"},
     {name = "⚡ Jerk", r6 = "https://pastefy.app/wa3v2Vgm/raw", r15 = "https://pastefy.app/YZoglOyJ/raw"}
 }
