@@ -546,6 +546,48 @@ espTab:CreateSlider({
 
 
 
--- Tab Misc
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- สร้าง Tab Misc
 local miscTab = Window:CreateTab("Misc", "cog")
+
+-- ฟังก์ชัน Teleport Player มาหาเรา
+local function tpPlayerToMe(targetPlayer)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if myHRP then
+            targetPlayer.Character.HumanoidRootPart.CFrame = myHRP.CFrame
+        end
+    end
+end
+
+-- สร้าง Dropdown ให้เลือกผู้เล่น
+local playerDropdown = miscTab:CreateDropdown({
+    Name = "Select Player",
+    Options = {},
+    Callback = function(selected)
+        local target = Players:FindFirstChild(selected)
+        if target then
+            tpPlayerToMe(target)
+        end
+    end
+})
+
+-- อัปเดตรายชื่อผู้เล่นใน Dropdown
+local function updatePlayerList()
+    local list = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            table.insert(list, p.Name)
+        end
+    end
+    playerDropdown:Refresh(list)
+end
+
+-- เรียกอัปเดตรายชื่อเมื่อผู้เล่นเข้าหรือออก
+Players.PlayerAdded:Connect(updatePlayerList)
+Players.PlayerRemoving:Connect(updatePlayerList)
+updatePlayerList()
+
 
