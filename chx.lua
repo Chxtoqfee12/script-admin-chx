@@ -538,15 +538,6 @@ espTab:CreateSlider({
 
 
 
-
-
-
-
-
-
-
-
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
@@ -555,12 +546,6 @@ local miscTab = Window:CreateTab("Misc", "cog")
 
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
-
-RunService.RenderStepped:Connect(function()
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.Health = player.Character.Humanoid.MaxHealth
-    end
-end)
 
 
 
