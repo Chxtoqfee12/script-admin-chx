@@ -236,13 +236,6 @@ local function showNotification(message)
     end)
 end
 
--- แสดง Notification ตาม Rig
-if isR6 then
-    showNotification("🌟 R6 detected!")
-else
-    showNotification("✨ R15 detected!")
-end
-
 -- UI Window (สมมติ Window object มีอยู่)
 local followTab = Window:CreateTab("Follow & Scripts", "compass")
 
@@ -368,30 +361,6 @@ followTab:CreateToggle({
     end,
 })
 
-followTab:CreateToggle({
-    Name = "Animation",
-    CurrentValue = false,
-    Flag = "FlyFunctionToggle",
-    Callback = function(state)
-        flyAnimationEnabled = state
-        if state then
-            if not flyLoaded then
-                local success, err = pcall(function()
-                    loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/jerk', true))()
-                end)
-                if not success then warn("ไม่สามารถโหลด GUI: "..tostring(err)) return end
-                flyGui = player:WaitForChild("PlayerGui"):WaitForChild("main")
-                flyGui.Enabled = true
-                flyLoaded = true
-            else
-                if flyGui then flyGui.Enabled = true end
-            end
-        else
-            if flyGui then flyGui.Enabled = false end
-        end
-    end
-})
-
 followAnimation = Instance.new("Animation")
 followAnimation.AnimationId = "rbxassetid://1234567890"
 
@@ -400,9 +369,9 @@ Players.PlayerRemoving:Connect(function() playerDropdown:Set(GetPlayerList()) en
 
 -- ================== Script Buttons ==================
 local buttons = {
-    {name = "🎯 Bang V2", r6 = "https://pastebin.com/raw/aPSHMV6K", r15 = "https://pastebin.com/raw/1ePMTt9n"},
-    {name = "🎉 Get Banged", r6 = "https://pastebin.com/raw/zHbw7ND1", r15 = "https://pastebin.com/raw/7hvcjDnW"},
-    {name = "💥 Suck", r6 = "https://pastebin.com/raw/SymCfnAW", r15 = "https://pastebin.com/raw/p8yxRfr4"},
+    {name = "🎯 Bang V2", r6 = "https://pastebin.com/raw/n9XXsPRW", r15 = "https://pastebin.com/raw/Rsg7hyWE"},
+    {name = "🎉 Get Banged", r6 = "https://pastebin.com/raw/xGA5WRef", r15 = "https://pastebin.com/raw/6Arx6t4V"},
+    {name = "💥 Suck", r6 = "https://pastebin.com/raw/2dwnBT3i", r15 = "https://pastebin.com/raw/mH7BTYcB"},
     {name = "⚡ Jerk", r6 = "https://pastefy.app/wa3v2Vgm/raw", r15 = "https://pastefy.app/YZoglOyJ/raw"}
 }
 
