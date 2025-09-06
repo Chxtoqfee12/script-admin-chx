@@ -544,29 +544,40 @@ local LocalPlayer = Players.LocalPlayer
 -- สร้าง Tab Misc
 local miscTab = Window:CreateTab("Misc", "cog")
 
--- ตัวแปรเก็บสถานะ Fly/Invisible GUI
+-- ตัวแปรเก็บสถานะ Invisible GUI
 local flyLoaded = false
 local flyGui = nil
 
 miscTab:CreateToggle({
     Name = "Invisible",
-    CurrentValue = false, -- เริ่มต้นปิด
+    CurrentValue = false,
     Flag = "InvisibleFunctionToggle",
     Callback = function(state)
         if state then
             if not flyLoaded then
                 local success, err = pcall(function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/invisiblei", true))()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/invisible", true))()
                 end)
                 if not success then
                     warn("ไม่สามารถโหลด GUI ได้: " .. tostring(err))
                     return
                 end
 
-                -- รอให้ GUI ปรากฏ
-                flyGui = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("main")
-                flyGui.Enabled = true
-                flyLoaded = true
+                -- 🔎 หาว่า GUI ชื่ออะไรจริง ๆ
+                local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+                for _, v in ipairs(playerGui:GetChildren()) do
+                    if v:IsA("ScreenGui") then
+                        flyGui = v
+                        break
+                    end
+                end
+
+                if flyGui then
+                    flyGui.Enabled = true
+                    flyLoaded = true
+                else
+                    warn("ไม่พบ GUI ที่โหลดมาจริง ๆ")
+                end
             else
                 if flyGui then
                     flyGui.Enabled = true
@@ -579,6 +590,7 @@ miscTab:CreateToggle({
         end
     end
 })
+
 
 
 
