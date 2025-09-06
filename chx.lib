@@ -3550,24 +3550,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 	return Window
 end
 
-local function setVisibility(visibility: boolean, notify: boolean?)
-	if Debounce then return end
-	if visibility then
-		Hidden = false
-		Unhide()
-	else
-		Hidden = true
-		Hide(notify)
-	end
-end
 
-function RayfieldLibrary:SetVisibility(visibility: boolean)
-	setVisibility(visibility, false)
-end
-
-function RayfieldLibrary:IsVisible(): boolean
-	return not Hidden
-end
 
 local hideHotkeyConnection -- Has to be initialized here since the connection is made later in the script
 function RayfieldLibrary:Destroy()
