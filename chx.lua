@@ -1,4 +1,4 @@
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/x2Swiftz/UI-Library/main/Libraries/Rayfield%20-%20Library.lua'))()
 local player = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -149,6 +149,95 @@ RunService.Stepped:Connect(function()
         end
     end
 end)
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+------------------------------------------------------
+--invisible--
+------------------------------------------------------
+
+--invisible--
+-- Sound
+local sound = Instance.new("Sound", player:WaitForChild("PlayerGui"))
+sound.SoundId = "rbxassetid://942127495"
+sound.Volume = 1
+
+-- Set Transparency
+local function setTransparency(character, transparency)
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") or part:IsA("Decal") then
+            part.Transparency = transparency
+        end
+    end
+end
+
+-- Variables
+local invis_on = false
+
+-- Toggle Invisible Function
+local function toggleInvisibility(state)
+    invis_on = state
+    sound:Play()
+
+    if invis_on then
+        local savedpos = player.Character.HumanoidRootPart.CFrame
+        task.wait()
+        player.Character:MoveTo(Vector3.new(-25.95, 84, 3537.55))
+        task.wait(0.15)
+
+        local Seat = Instance.new("Seat")
+        Seat.Anchored = false
+        Seat.CanCollide = false
+        Seat.Transparency = 1 -- มองไม่เห็น
+        Seat.Size = Vector3.new(2, 1, 2) -- ขนาดปกติ (แต่เดี๋ยวจะย่อด้วย Mesh)
+        Seat.Name = "invischair"
+        Seat.CFrame = CFrame.new(-25.95, 84, 3537.55)
+        Seat.Parent = workspace
+
+        -- ใส่ Mesh เพื่อหดจนหายไป
+        local mesh = Instance.new("SpecialMesh", Seat)
+        mesh.MeshType = Enum.MeshType.Brick
+        mesh.Scale = Vector3.new(0, 0, 0) -- หดจนไม่เหลือภาพ
+
+        -- Weld ติดกับตัวละคร
+        local Weld = Instance.new("Weld", Seat)
+        Weld.Part0 = Seat
+        Weld.Part1 = player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("UpperTorso")
+
+
+        task.wait()
+        Seat.CFrame = savedpos
+        setTransparency(player.Character, 0.5)
+
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Invis (on)",
+            Duration = 3,
+            Text = "STATUS:"
+        })
+    else
+        local invisChair = workspace:FindFirstChild("invischair")
+        if invisChair then invisChair:Destroy() end
+        setTransparency(player.Character, 0)
+
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Invis (off)",
+            Duration = 3,
+            Text = "STATUS:"
+        })
+    end
+end
+
+-- ปุ่มสวิตช์ Invisible (Rayfield)
+Tab:CreateToggle({
+    Name = "Invisible",
+    CurrentValue = false,
+    Flag = "InvisibleToggle",
+    Callback = function(state)
+        toggleInvisibility(state)
+    end
+})
+
 
 ------------------------------------------------------
 -- Reset Button
@@ -537,60 +626,7 @@ espTab:CreateSlider({
 
 
 
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
--- สร้าง Tab Misc
 local miscTab = Window:CreateTab("Misc", "cog")
-
--- ตัวแปรเก็บสถานะ Invisible GUI
-local flyLoaded = false
-local flyGui = nil
-
-miscTab:CreateToggle({
-    Name = "Invisible",
-    CurrentValue = false,
-    Flag = "InvisibleFunctionToggle",
-    Callback = function(state)
-        if state then
-            if not flyLoaded then
-                local success, err = pcall(function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/invisible", true))()
-                end)
-                if not success then
-                    warn("ไม่สามารถโหลด GUI ได้: " .. tostring(err))
-                    return
-                end
-
-                -- 🔎 หาว่า GUI ชื่ออะไรจริง ๆ
-                local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-                for _, v in ipairs(playerGui:GetChildren()) do
-                    if v:IsA("ScreenGui") then
-                        flyGui = v
-                        break
-                    end
-                end
-
-                if flyGui then
-                    flyGui.Enabled = true
-                    flyLoaded = true
-                else
-                    warn("ไม่พบ GUI ที่โหลดมาจริง ๆ")
-                end
-            else
-                if flyGui then
-                    flyGui.Enabled = true
-                end
-            end
-        else
-            if flyGui then
-                flyGui.Enabled = false
-            end
-        end
-    end
-})
-
 
 
 
