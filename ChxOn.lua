@@ -1,6 +1,3 @@
--- Orion version of your full script
--- Place as LocalScript
--- Author: converted for Fluk
 
 -- ========== Load Orion ==========
 local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/ChxOn.lib'))()
