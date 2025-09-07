@@ -59,7 +59,7 @@ end
 
 -- ========== Window & Tabs ==========
 local Window = OrionLib:MakeWindow({
-    Name = "Chx Script (Orion)",
+    Name = "Chx Script",
     HidePremium = false,
     SaveConfig = false,
     ConfigFolder = "ChxScript"
