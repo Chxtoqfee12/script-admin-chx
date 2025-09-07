@@ -56,7 +56,7 @@ end
 
 -- ========== Window & Tabs ==========
 local Window = OrionLib:MakeWindow({
-    Name = "Chx Script",
+    Name = "Chx Script / discord.gg/zHMEUZrHZ6",
     HidePremium = false,
     SaveConfig = false,
     ConfigFolder = "ChxScript"
