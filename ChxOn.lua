@@ -3,7 +3,7 @@
 -- Author: converted for Fluk
 
 -- ========== Load Orion ==========
-local OrionLib = loadstring(game:HttpGet('https://github.com/Chxtoqfee12/script-admin-chx/edit/main/ChxOn.lib'))()
+local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/ChxOn.lib'))()
 
 -- ========== Services & Player ==========
 local Players = game:GetService("Players")
