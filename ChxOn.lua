@@ -234,9 +234,9 @@ local invisRunning = false
 local IsInvis = false
 local Character, InvisibleCharacter
 local invisFix, invisDied
+local bodyPos -- ✅ เก็บ BodyPosition ของร่างจริงไว้ที่นี่
 
 -- ฟังก์ชันเปิดโหมด Invisible
-
 local function TurnInvisible()
 	if invisRunning or IsInvis then return end
 	invisRunning = true
@@ -260,8 +260,21 @@ local function TurnInvisible()
 		end
 	end
 
-	-- ✅ ย้ายตัวจริงไปที่พิกัดไกลมาก ๆ (เพื่อนจะมองไม่เห็น)
-	Character:MoveTo(Vector3.new(0, math.pi * 1000, 0))
+	-- ✅ ย้ายร่างจริงไปกลางอากาศ + ล็อคไม่ให้ตก
+	local root = Character:FindFirstChild("HumanoidRootPart")
+	if root then
+		local pos = root.Position
+
+		-- ย้ายไปสูงขึ้น 200 studs
+		root.CFrame = CFrame.new(pos.X, pos.Y + 200, pos.Z)
+
+		-- ใส่ BodyPosition ให้ลอยนิ่ง
+		bodyPos = Instance.new("BodyPosition")
+		bodyPos.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+		bodyPos.P = 3e4
+		bodyPos.Position = root.Position
+		bodyPos.Parent = root
+	end
 
 	-- เปลี่ยนการควบคุมมาใช้ร่างโคลน
 	LocalPlayer.Character = InvisibleCharacter
@@ -303,6 +316,12 @@ function TurnVisible()
 		workspace.CurrentCamera.CameraSubject = Character:FindFirstChildOfClass("Humanoid")
 	end
 
+	-- ✅ ปลดล็อค BodyPosition ถ้ามี
+	if bodyPos then
+		bodyPos:Destroy()
+		bodyPos = nil
+	end
+
 	Character.Animate.Disabled = true
 	Character.Animate.Disabled = false
 
@@ -314,9 +333,6 @@ function TurnVisible()
 
 	print("Invisible: OFF")
 end
-
-
-
 
 -- ================= Invisible Toggle =================
 MainTab:AddToggle({
@@ -334,6 +350,7 @@ MainTab:AddToggle({
         end
     end
 })
+
 
 
 
