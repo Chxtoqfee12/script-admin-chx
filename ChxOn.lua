@@ -217,13 +217,16 @@ end)
 
 
 -- Invisible (seat trick)
+-- Invisible (no seat trick)
 local invis_on = false
-local invisSeatName = "invischair"
-local invisSeat = nil -- เก็บ reference ของ seat
+local invisTransparency = 0.5 -- ค่าโปร่งใสเริ่มต้น
 
 local function setTransparency(characterObj, transparency)
     for _, part in pairs(characterObj:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("Decal") or part:IsA("Texture") then
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            pcall(function() part.Transparency = transparency end)
+            part.CanCollide = false
+        elseif part:IsA("Decal") or part:IsA("Texture") then
             pcall(function() part.Transparency = transparency end)
         end
     end
@@ -231,101 +234,195 @@ end
 
 local function toggleInvisibility(state)
     invis_on = state
+    if not player.Character then return end
 
-    -- ถ้าปิด invis ให้ลบ seat ทันที
-    if not invis_on then
-        if invisSeat and invisSeat.Parent then
-            invisSeat:Destroy()
-            invisSeat = nil
-        end
-        if player.Character then
-            setTransparency(player.Character, 0)
-        end
+    if invis_on then
+        setTransparency(player.Character, invisTransparency)
+        showNotification("Invis (on)", "STATUS: Invisible enabled", 3)
+    else
+        setTransparency(player.Character, 0)
         showNotification("Invis (off)", "STATUS: Invisible disabled", 3)
-        return
     end
-
-    -- ถ้าเปิด invis
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-
-    local savedpos = player.Character.HumanoidRootPart.CFrame
-    task.wait()
-    local seatPos = Vector3.new(-25.95, 84, 3537.55)
-    player.Character:MoveTo(seatPos)
-    task.wait(0.15)
-
-    -- สร้าง seat
-    invisSeat = Instance.new("Seat")
-    invisSeat.Anchored = false
-    invisSeat.CanCollide = false
-    invisSeat.Transparency = 1
-    invisSeat.Size = Vector3.new(2,1,2)
-    invisSeat.Name = invisSeatName
-    invisSeat.CFrame = CFrame.new(seatPos)
-    invisSeat.Parent = workspace
-
-    local mesh = Instance.new("SpecialMesh", invisSeat)
-    mesh.MeshType = Enum.MeshType.Brick
-    mesh.Scale = Vector3.new(0,0,0)
-
-    local weld = Instance.new("Weld")
-    weld.Part0 = invisSeat
-    local torso = player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("UpperTorso")
-    if torso then
-        weld.Part1 = torso
-        weld.Parent = invisSeat
-    end
-
-    task.wait()
-    invisSeat.CFrame = savedpos
-    setTransparency(player.Character, 0.5)
-    showNotification("Invis (on)", "STATUS: Invisible enabled", 3)
-end
-
--- Invisible Toggle
-MainTab:AddToggle({
-    Name = "Invisible",
-    Default = false,  -- ต้อง false เพื่อไม่ให้เปิดตอนเริ่ม
-    Save = false,
-    Flag = "InvisibleToggle",
-    Callback = function(state)
-        toggleInvisibility(state)
-    end
-})
-
--- ===== Reset ทุกฟังก์ชันตอนเริ่มต้น =====
-currentValues.Noclip = false
-currentValues.InfinityJump = false
-invis_on = false
-invisSeat = nil
-if player.Character then
-    setNoclip(false)
-    -- ไม่เรียก toggleInvisibility(false) ตอนเริ่ม เพื่อไม่สร้าง seat
-    setTransparency(player.Character, 0)
 end
 
 
--- Reset Button
-MainTab:AddButton({
-    Name = "Reset Enhancements",
-    Callback = function()
-        currentValues.WalkSpeed = 16
-        currentValues.JumpPower = 50
-        currentValues.Noclip = false
-        currentValues.InfinityJump = false
 
-        -- apply changes
-        applyBoosts()
-        setNoclip(false)
-        currentValues.InfinityJump = false
+-- ====================================
+-- Invisible 100% Ghost/Clone (Orion GUI)
+-- ====================================
 
-        -- try to set UI sliders/toggles back if Orion widget exposes Set/SetValue methods
-        pcall(function()
-            -- Orion doesn't guarantee return, but if sliders exist in Window flags we can try to set them
-            OrionLib:MakeNotification({Name="Reset", Content="ค่ารีเซ็ตเป็นค่าเริ่มต้นแล้ว", Time=3})
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- ตัวแปรควบคุม
+local invisRunning = false
+local invis_on = false
+local InvisibleCharacter = nil
+local originalCharacter = nil
+local invisFixConnection = nil
+local invisDiedConnection = nil
+
+-- ฟังก์ชันแจ้งเตือน (ใช้ Orion)
+local function showNotification(title, text)
+    if OrionLib then
+        OrionLib:MakeNotification({
+            Name = title,
+            Content = text,
+            Image = "rbxassetid://4483345998",
+            Time = 3
+        })
+    else
+        print(title..": "..text)
+    end
+end
+
+-- ฟังก์ชันเปิด/ปิด invisible
+local function toggleInvisible(state)
+    if invisRunning then return end
+    invis_on = state
+
+    if invis_on then
+        invisRunning = true
+        -- รอ character โหลด
+        repeat task.wait(.1) until player.Character
+        originalCharacter = player.Character
+        originalCharacter.Archivable = true
+
+        -- Clone ตัวละคร
+        InvisibleCharacter = originalCharacter:Clone()
+        InvisibleCharacter.Parent = Lighting -- ซ่อนตัวจริงไว้ก่อน
+        InvisibleCharacter.Name = ""
+        
+        -- ปรับโปร่งใส
+        for _,v in pairs(InvisibleCharacter:GetDescendants()) do
+            if v:IsA("BasePart") then
+                if v.Name == "HumanoidRootPart" then
+                    v.Transparency = 1
+                else
+                    v.Transparency = 0.5
+                end
+                v.CanCollide = false
+            end
+        end
+
+        -- กล้องตามโคลน
+        local CF = workspace.CurrentCamera.CFrame
+        local hrpCFrame = originalCharacter:WaitForChild("HumanoidRootPart").CFrame
+        originalCharacter.Parent = Lighting
+        InvisibleCharacter.Parent = workspace
+        InvisibleCharacter:WaitForChild("HumanoidRootPart").CFrame = hrpCFrame
+        player.Character = InvisibleCharacter
+        camera.CameraSubject = InvisibleCharacter:FindFirstChildOfClass("Humanoid")
+        player.Character:WaitForChild("Animate").Disabled = true
+        player.Character.Animate.Disabled = false
+
+        -- ตรวจสอบโคลนตกพื้น → Respawn
+        local function Respawn()
+            if not invis_on then return end
+            -- คืนตัวจริง
+            if originalCharacter and InvisibleCharacter then
+                player.Character = originalCharacter
+                originalCharacter.Parent = workspace
+                InvisibleCharacter:Destroy()
+                invisRunning = false
+                invis_on = false
+                camera.CameraSubject = originalCharacter:FindFirstChildOfClass("Humanoid")
+                showNotification("Invisible", "กลับมาที่ตัวจริงแล้ว")
+            end
+        end
+
+        invisFixConnection = RunService.Stepped:Connect(function()
+            pcall(function()
+                local Void = workspace.FallenPartsDestroyHeight
+                local posY = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position.Y or 0
+                if posY <= Void then
+                    Respawn()
+                    if invisFixConnection then invisFixConnection:Disconnect() end
+                end
+            end)
         end)
+
+        -- ถ้าโคลนตายให้ Respawn
+        invisDiedConnection = InvisibleCharacter:FindFirstChildOfClass("Humanoid").Died:Connect(function()
+            Respawn()
+            if invisDiedConnection then invisDiedConnection:Disconnect() end
+        end)
+
+        showNotification("Invisible", "คุณเป็น Invisible 100% แล้ว")
+        
+    else
+        -- ปิด invisible
+        if originalCharacter and InvisibleCharacter then
+            player.Character = originalCharacter
+            originalCharacter.Parent = workspace
+            InvisibleCharacter:Destroy()
+            camera.CameraSubject = originalCharacter:FindFirstChildOfClass("Humanoid")
+        end
+        if invisFixConnection then
+            invisFixConnection:Disconnect()
+            invisFixConnection = nil
+        end
+        if invisDiedConnection then
+            invisDiedConnection:Disconnect()
+            invisDiedConnection = nil
+        end
+        invisRunning = false
+        showNotification("Invisible", "กลับมาที่ตัวจริงแล้ว")
+    end
+end
+
+local function TurnVisible()
+    if not invis_on then return end
+    invis_on = false
+    invisRunning = false
+
+    -- คืนตัวจริง
+    if originalCharacter and InvisibleCharacter then
+        player.Character = originalCharacter
+        originalCharacter.Parent = workspace
+        InvisibleCharacter:Destroy()
+        camera.CameraSubject = originalCharacter:FindFirstChildOfClass("Humanoid")
+    end
+
+    -- ตัดการเชื่อมต่อ
+    if invisFixConnection then
+        invisFixConnection:Disconnect()
+        invisFixConnection = nil
+    end
+    if invisDiedConnection then
+        invisDiedConnection:Disconnect()
+        invisDiedConnection = nil
+    end
+
+    showNotification("Invisible", "กลับมาที่ตัวจริงแล้ว")
+end
+
+
+-- ====================================
+-- เพิ่ม Toggle ใน Orion GUI
+-- ====================================
+MainTab:AddToggle({
+    Name = "Invisible (Ghost/Clone)",
+    Default = false,
+    Save = false,
+    Flag = "InvisibleGhostCloneToggle",
+    Callback = function(state)
+        if state then
+            toggleInvisible(true)
+        else
+            TurnVisible()
+        end
     end
 })
+
+
+
+
+
+
 
 
 -- Services 
