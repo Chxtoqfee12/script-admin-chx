@@ -300,23 +300,41 @@ end
 function TurnVisible()
 	if not IsInvis then return end
 
-	-- เก็บตำแหน่งของโคลน
-	local CF = LocalPlayer.Character.HumanoidRootPart.CFrame
-
-	-- ลบร่างโคลน
-	InvisibleCharacter:Destroy()
-
-	-- เอาตัวจริงกลับมา
-	Character.Parent = workspace
-	Character.HumanoidRootPart.CFrame = CF
-	LocalPlayer.Character = Character
-
-	-- ✅ กล้องกลับมาตามตัวจริง
-	if Character:FindFirstChildOfClass("Humanoid") then
-		workspace.CurrentCamera.CameraSubject = Character:FindFirstChildOfClass("Humanoid")
+	-- ตรวจสอบว่าตัวจริงยังอยู่
+	if not Character or not Character.Parent then
+		warn("Character ไม่อยู่ ไม่สามารถทำ TurnVisible ได้")
+		InvisibleCharacter:Destroy()
+		IsInvis = false
+		invisRunning = false
+		return
 	end
 
-	-- ✅ ปลดล็อค BodyPosition ถ้ามี
+	-- เก็บตำแหน่งของโคลน (ถ้ามี)
+	local CF
+	if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		CF = LocalPlayer.Character.HumanoidRootPart.CFrame
+	end
+
+	-- ลบร่างโคลน
+	if InvisibleCharacter then
+		InvisibleCharacter:Destroy()
+	end
+
+	-- เอาตัวจริงกลับมา
+	if Character and Character:FindFirstChild("HumanoidRootPart") then
+		Character.Parent = workspace
+		if CF then
+			Character.HumanoidRootPart.CFrame = CF
+		end
+		LocalPlayer.Character = Character
+
+		-- กล้องกลับตามตัวจริง
+		if Character:FindFirstChildOfClass("Humanoid") then
+			workspace.CurrentCamera.CameraSubject = Character:FindFirstChildOfClass("Humanoid")
+		end
+	end
+
+	-- ปลดล็อค BodyPosition ถ้ามี
 	if bodyPos then
 		bodyPos:Destroy()
 		bodyPos = nil
@@ -471,6 +489,17 @@ end
 -------------------------------------------------------
 -- Dropdown เลือกผู้เล่น
 -------------------------------------------------------
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local targetPlayer = nil
+local followEnabled = false -- Toggle เปิด/ปิดติดตาม
+local followSpeed = 0.1    -- ความเร็วการตาม (0-1, ยิ่งสูงยิ่งเร็ว)
+
+-------------------------------------------------------
+-- Dropdown เลือกผู้เล่น
+-------------------------------------------------------
 local function GetPlayerList()
     local list = {}
     for _, plr in pairs(Players:GetPlayers()) do
@@ -527,6 +556,35 @@ FollowTab:AddToggle({
         if val then startSuck() else stopAction() end
     end
 })
+
+-------------------------------------------------------
+-- Toggle Follow Player
+-------------------------------------------------------
+FollowTab:AddToggle({
+    Name = "Follow Player",
+    Default = false,
+    Save = false,
+    Flag = "FollowToggle",
+    Callback = function(state)
+        followEnabled = state
+    end
+})
+
+-------------------------------------------------------
+-- ฟังก์ชันติดตามผู้เล่นแบบ Smooth
+-------------------------------------------------------
+RunService.RenderStepped:Connect(function()
+    if followEnabled and targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local targetHRP = targetPlayer.Character.HumanoidRootPart
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local myHRP = LocalPlayer.Character.HumanoidRootPart
+            -- Lerp ตำแหน่งเพื่อ smooth movement
+            local newCFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0, 0, 1), followSpeed)
+            myHRP.CFrame = newCFrame
+        end
+    end
+end)
+
 
 -- ========== ESP implementation ==========
 local espEnabled = false
