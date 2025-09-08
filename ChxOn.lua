@@ -317,24 +317,121 @@ MainTab:AddButton({
     end
 })
 
--- ========== Follow player (dropdown, refresh, follow toggle) ==========
-local following = false
-local targetPlayer = nil
-local followConnection = nil
-local followAnimation = nil
-local followAnimationTrack = nil
 
-local function GetPlayerList()
-    local names = {}
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player then
-            table.insert(names, plr.Name)
-        end
-    end
-    return names
+-- Services 
+local Players = game:GetService("Players") 
+local TweenService = game:GetService("TweenService") 
+local RunService = game:GetService("RunService") 
+local LocalPlayer = Players.LocalPlayer
+-------------------------------------------------------
+-- ตัวแปรหลัก
+-------------------------------------------------------
+local targetPlayer = nil
+local activeAnimation
+local running = false
+local attachmentLoop
+
+-- Animation IDs
+local animBangedR15 = "10714360343"
+local animBangedR6  = "189854234"
+local animSuckR15   = "5918726674"
+local animSuckR6    = "178130996"
+
+-------------------------------------------------------
+-- ฟังก์ชันเช็ค Rig
+-------------------------------------------------------
+local function isR6Character(plr)
+    local char = plr and plr.Character
+    if not char then return false end
+    return char:FindFirstChild("Torso") ~= nil
 end
 
--- Dropdown creation
+-------------------------------------------------------
+-- ฟังก์ชันหยุดทุกท่า
+-------------------------------------------------------
+local function stopAction()
+    running = false
+    if attachmentLoop then
+        attachmentLoop:Disconnect()
+        attachmentLoop = nil
+    end
+    if activeAnimation then
+        activeAnimation:Stop()
+        activeAnimation = nil
+    end
+end
+
+-------------------------------------------------------
+-- ฟังก์ชันแต่ละท่า
+-------------------------------------------------------
+
+local function startBanged()
+    if not targetPlayer or not targetPlayer.Character then return end
+    stopAction()
+    running = true
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://"..(isR6Character(LocalPlayer) and animBangedR6 or animBangedR15)
+        activeAnimation = humanoid:LoadAnimation(anim)
+        activeAnimation:Play()
+    end
+    coroutine.wrap(function()
+        while running do
+            local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character.PrimaryPart
+            if targetHRP and myHRP then
+                local fwd = targetHRP.CFrame * CFrame.new(0,0,-1.5)
+                local bwd = targetHRP.CFrame * CFrame.new(0,0,-1.1)
+                if isR6Character(LocalPlayer) then
+                    fwd = targetHRP.CFrame * CFrame.new(0,0,-2.5)
+                    bwd = targetHRP.CFrame * CFrame.new(0,0,-1.3)
+                end
+                TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=fwd}):Play()
+                task.wait(0.15)
+                TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=bwd}):Play()
+                task.wait(0.15)
+            else
+                stopAction()
+                break
+            end
+        end
+    end)()
+end
+
+local function startSuck()
+    if not targetPlayer or not targetPlayer.Character then return end
+    stopAction()
+    running = true
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    local targetTorso = targetPlayer.Character:FindFirstChild("LowerTorso") or targetPlayer.Character:FindFirstChild("UpperTorso")
+    if humanoid then
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://"..(isR6Character(LocalPlayer) and animSuckR6 or animSuckR15)
+        activeAnimation = humanoid:LoadAnimation(anim)
+        activeAnimation:Play()
+    end
+    attachmentLoop = RunService.Heartbeat:Connect(function()
+        if running and targetTorso and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+            local hrp = LocalPlayer.Character.PrimaryPart
+            hrp.CFrame = targetTorso.CFrame * CFrame.new(0,-2.3,-1) * CFrame.Angles(0,math.pi,0)
+        else
+            stopAction()
+        end
+    end)
+end
+
+-------------------------------------------------------
+-- Dropdown เลือกผู้เล่น
+-------------------------------------------------------
+local function GetPlayerList()
+    local list = {}
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then table.insert(list, plr.Name) end
+    end
+    return list
+end
+
 local playerDropdown = FollowTab:AddDropdown({
     Name = "Select Player",
     Default = "",
@@ -353,101 +450,36 @@ local playerDropdown = FollowTab:AddDropdown({
 FollowTab:AddButton({
     Name = "Refresh Player List",
     Callback = function()
-        -- Orion AddDropdown doesn't necessarily expose Set; we recreate dropdown by removing and adding new...
-        -- Simpler: show notification and instruct user to re-open UI if necessary
-        playerDropdown = FollowTab:AddDropdown({
-            Name = "Select Player",
-            Default = "",
-            Options = GetPlayerList(),
-            Save = false,
-            Flag = "TargetPlayer",
-            Callback = function(value)
-                if value and value ~= "" then
-                    targetPlayer = Players:FindFirstChild(value)
-                else
-                    targetPlayer = nil
-                end
-            end
-        })
-        showNotification("Refresh", "Player list updated", 2)
+        playerDropdown:Refresh(GetPlayerList())
     end
 })
 
-local function startFollowing()
-    if followConnection then followConnection:Disconnect() followConnection = nil end
-    if targetPlayer and targetPlayer.Character and player.Character then
-        followConnection = RunService.Heartbeat:Connect(function()
-            if not (player.Character and targetPlayer and targetPlayer.Character) then return end
-            local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local root = player.Character:FindFirstChild("HumanoidRootPart")
-            if targetRoot and root then
-                local offsetPos = targetRoot.Position + (targetRoot.CFrame.LookVector * -2)
-                root.CFrame = CFrame.lookAt(offsetPos, targetRoot.Position)
-            end
-        end)
-    end
-end
+-------------------------------------------------------
+-- Toggle แยกท่า
+-------------------------------------------------------
 
-local function stopFollowing()
-    if followConnection then followConnection:Disconnect() followConnection = nil end
-end
+-- เก็บ Toggle objects ไว้
+local bangedToggleObj, suckToggleObj
 
 FollowTab:AddToggle({
-    Name = "Follow Player",
+    Name = "🎉 Banged",
     Default = false,
     Save = false,
-    Flag = "FollowToggle",
+    Flag = "BangedToggle",
     Callback = function(val)
-        following = val
-        if following then
-            setNoclip(true)
-            startFollowing()
-        else
-            setNoclip(false)
-            stopFollowing()
-        end
+        if val then startBanged() else stopAction() end
     end
 })
 
--- Update player list on join/leave
-Players.PlayerAdded:Connect(function() 
-    -- not ideal to programmatically change Orion dropdown; user can press Refresh
-end)
-Players.PlayerRemoving:Connect(function() 
-    -- same as above
-end)
-
--- Add buttons that load external script URLs (Bang, Banged, etc.)
-local buttons = {
-    {name = "🎯 Bang", r6 = "https://pastebin.com/raw/n9XXsPRW", r15 = "https://pastebin.com/raw/Rsg7hyWE"},
-    {name = "🎉 Banged", r6 = "https://pastebin.com/raw/xGA5WRef", r15 = "https://pastebin.com/raw/6Arx6t4V"},
-    {name = "💥 Suck", r6 = "https://pastebin.com/raw/2dwnBT3i", r15 = "https://pastebin.com/raw/mH7BTYcB"},
-    {name = "⚡ Jerk", r6 = "https://pastefy.app/wa3v2Vgm/raw", r15 = "https://pastefy.app/YZoglOyJ/raw"}
-}
-
--- Check rig (R6 or R15)
-local function isR6Character()
-    local char = player.Character
-    if not char then return false end
-    return char:FindFirstChild("Torso") ~= nil
-end
-
-for _, b in ipairs(buttons) do
-    FollowTab:AddButton({
-        Name = b.name,
-        Callback = function()
-            local isR6 = isR6Character()
-            local url = isR6 and b.r6 or b.r15
-            local success, err = pcall(function()
-                loadstring(game:HttpGet(url))()
-            end)
-            if not success then
-                warn("โหลดสคริปต์ "..b.name.." ไม่ได้: "..tostring(err))
-                showNotification("Load script error", b.name.." failed", 3)
-            end
-        end
-    })
-end
+FollowTab:AddToggle({
+    Name = "💥 Suck",
+    Default = false,
+    Save = false,
+    Flag = "SuckToggle",
+    Callback = function(val)
+        if val then startSuck() else stopAction() end
+    end
+})
 
 -- ========== ESP implementation ==========
 local espEnabled = false
