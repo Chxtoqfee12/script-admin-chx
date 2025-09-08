@@ -216,207 +216,132 @@ UIS.JumpRequest:Connect(function()
 end)
 
 
--- Invisible (seat trick)
--- Invisible (no seat trick)
-local invis_on = false
-local invisTransparency = 0.5 -- ค่าโปร่งใสเริ่มต้น
-
-local function setTransparency(characterObj, transparency)
-    for _, part in pairs(characterObj:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-            pcall(function() part.Transparency = transparency end)
-            part.CanCollide = false
-        elseif part:IsA("Decal") or part:IsA("Texture") then
-            pcall(function() part.Transparency = transparency end)
-        end
-    end
-end
-
-local function toggleInvisibility(state)
-    invis_on = state
-    if not player.Character then return end
-
-    if invis_on then
-        setTransparency(player.Character, invisTransparency)
-        showNotification("Invis (on)", "STATUS: Invisible enabled", 3)
-    else
-        setTransparency(player.Character, 0)
-        showNotification("Invis (off)", "STATUS: Invisible disabled", 3)
-    end
-end
 
 
 
--- ====================================
--- Invisible 100% Ghost/Clone (Orion GUI)
--- ====================================
 
-local RunService = game:GetService("RunService")
+
+
+
+
+--// Services
+--// Invisible Script Function (Toggle)
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 local Lighting = game:GetService("Lighting")
-local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
 
--- ตัวแปรควบคุม
 local invisRunning = false
-local invis_on = false
-local InvisibleCharacter = nil
-local originalCharacter = nil
-local invisFixConnection = nil
-local invisDiedConnection = nil
+local IsInvis = false
+local Character, InvisibleCharacter
+local invisFix, invisDied
 
--- ฟังก์ชันแจ้งเตือน (ใช้ Orion)
-local function showNotification(title, text)
-    if OrionLib then
-        OrionLib:MakeNotification({
-            Name = title,
-            Content = text,
-            Image = "rbxassetid://4483345998",
-            Time = 3
-        })
-    else
-        print(title..": "..text)
-    end
+-- ฟังก์ชันเปิดโหมด Invisible
+-- ฟังก์ชันเปิดโหมด Invisible
+-- ฟังก์ชันเปิดโหมด Invisible
+local function TurnInvisible()
+	if invisRunning or IsInvis then return end
+	invisRunning = true
+
+	Character = LocalPlayer.Character
+	if not Character then return end
+	Character.Archivable = true
+
+	-- Clone ตัวละคร
+	InvisibleCharacter = Character:Clone()
+	InvisibleCharacter.Parent = workspace
+
+	-- ปรับความโปร่งใส
+	for _, v in pairs(InvisibleCharacter:GetDescendants()) do
+		if v:IsA("BasePart") then
+			if v.Name == "HumanoidRootPart" then
+				v.Transparency = 1
+			else
+				v.Transparency = 0.5
+			end
+		end
+	end
+
+	-- ✅ ย้ายตัวจริงไปที่พิกัดไกลมาก ๆ (เพื่อนจะมองไม่เห็น)
+	Character:MoveTo(Vector3.new(0, math.pi * 1000000, 0))
+
+	-- เปลี่ยนการควบคุมมาใช้ร่างโคลน
+	LocalPlayer.Character = InvisibleCharacter
+	IsInvis = true
+
+	-- Fix กล้อง
+	if InvisibleCharacter:FindFirstChildOfClass("Humanoid") then
+		workspace.CurrentCamera.CameraSubject = InvisibleCharacter:FindFirstChildOfClass("Humanoid")
+	end
+
+	LocalPlayer.Character.Animate.Disabled = true
+	LocalPlayer.Character.Animate.Disabled = false
+
+	-- ตรวจจับถ้าตาย
+	invisDied = InvisibleCharacter:FindFirstChildOfClass("Humanoid").Died:Connect(function()
+		TurnVisible()
+	end)
+
+	print("Invisible: ON")
 end
 
--- ฟังก์ชันเปิด/ปิด invisible
-local function toggleInvisible(state)
-    if invisRunning then return end
-    invis_on = state
+-- ฟังก์ชันปิดโหมด Invisible
+function TurnVisible()
+	if not IsInvis then return end
 
-    if invis_on then
-        invisRunning = true
-        -- รอ character โหลด
-        repeat task.wait(.1) until player.Character
-        originalCharacter = player.Character
-        originalCharacter.Archivable = true
+	-- เก็บตำแหน่งของโคลน
+	local CF = LocalPlayer.Character.HumanoidRootPart.CFrame
 
-        -- Clone ตัวละคร
-        InvisibleCharacter = originalCharacter:Clone()
-        InvisibleCharacter.Parent = Lighting -- ซ่อนตัวจริงไว้ก่อน
-        InvisibleCharacter.Name = ""
-        
-        -- ปรับโปร่งใส
-        for _,v in pairs(InvisibleCharacter:GetDescendants()) do
-            if v:IsA("BasePart") then
-                if v.Name == "HumanoidRootPart" then
-                    v.Transparency = 1
-                else
-                    v.Transparency = 0.5
-                end
-                v.CanCollide = false
-            end
-        end
+	-- ลบร่างโคลน
+	InvisibleCharacter:Destroy()
 
-        -- กล้องตามโคลน
-        local CF = workspace.CurrentCamera.CFrame
-        local hrpCFrame = originalCharacter:WaitForChild("HumanoidRootPart").CFrame
-        originalCharacter.Parent = Lighting
-        InvisibleCharacter.Parent = workspace
-        InvisibleCharacter:WaitForChild("HumanoidRootPart").CFrame = hrpCFrame
-        player.Character = InvisibleCharacter
-        camera.CameraSubject = InvisibleCharacter:FindFirstChildOfClass("Humanoid")
-        player.Character:WaitForChild("Animate").Disabled = true
-        player.Character.Animate.Disabled = false
+	-- เอาตัวจริงกลับมา
+	Character.Parent = workspace
+	Character.HumanoidRootPart.CFrame = CF
+	LocalPlayer.Character = Character
 
-        -- ตรวจสอบโคลนตกพื้น → Respawn
-        local function Respawn()
-            if not invis_on then return end
-            -- คืนตัวจริง
-            if originalCharacter and InvisibleCharacter then
-                player.Character = originalCharacter
-                originalCharacter.Parent = workspace
-                InvisibleCharacter:Destroy()
-                invisRunning = false
-                invis_on = false
-                camera.CameraSubject = originalCharacter:FindFirstChildOfClass("Humanoid")
-                showNotification("Invisible", "กลับมาที่ตัวจริงแล้ว")
-            end
-        end
+	-- ✅ กล้องกลับมาตามตัวจริง
+	if Character:FindFirstChildOfClass("Humanoid") then
+		workspace.CurrentCamera.CameraSubject = Character:FindFirstChildOfClass("Humanoid")
+	end
 
-        invisFixConnection = RunService.Stepped:Connect(function()
-            pcall(function()
-                local Void = workspace.FallenPartsDestroyHeight
-                local posY = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position.Y or 0
-                if posY <= Void then
-                    Respawn()
-                    if invisFixConnection then invisFixConnection:Disconnect() end
-                end
-            end)
-        end)
+	Character.Animate.Disabled = true
+	Character.Animate.Disabled = false
 
-        -- ถ้าโคลนตายให้ Respawn
-        invisDiedConnection = InvisibleCharacter:FindFirstChildOfClass("Humanoid").Died:Connect(function()
-            Respawn()
-            if invisDiedConnection then invisDiedConnection:Disconnect() end
-        end)
+	if invisFix then invisFix:Disconnect() end
+	if invisDied then invisDied:Disconnect() end
 
-        showNotification("Invisible", "คุณเป็น Invisible 100% แล้ว")
-        
-    else
-        -- ปิด invisible
-        if originalCharacter and InvisibleCharacter then
-            player.Character = originalCharacter
-            originalCharacter.Parent = workspace
-            InvisibleCharacter:Destroy()
-            camera.CameraSubject = originalCharacter:FindFirstChildOfClass("Humanoid")
-        end
-        if invisFixConnection then
-            invisFixConnection:Disconnect()
-            invisFixConnection = nil
-        end
-        if invisDiedConnection then
-            invisDiedConnection:Disconnect()
-            invisDiedConnection = nil
-        end
-        invisRunning = false
-        showNotification("Invisible", "กลับมาที่ตัวจริงแล้ว")
-    end
-end
+	IsInvis = false
+	invisRunning = false
 
-local function TurnVisible()
-    if not invis_on then return end
-    invis_on = false
-    invisRunning = false
-
-    -- คืนตัวจริง
-    if originalCharacter and InvisibleCharacter then
-        player.Character = originalCharacter
-        originalCharacter.Parent = workspace
-        InvisibleCharacter:Destroy()
-        camera.CameraSubject = originalCharacter:FindFirstChildOfClass("Humanoid")
-    end
-
-    -- ตัดการเชื่อมต่อ
-    if invisFixConnection then
-        invisFixConnection:Disconnect()
-        invisFixConnection = nil
-    end
-    if invisDiedConnection then
-        invisDiedConnection:Disconnect()
-        invisDiedConnection = nil
-    end
-
-    showNotification("Invisible", "กลับมาที่ตัวจริงแล้ว")
+	print("Invisible: OFF")
 end
 
 
--- ====================================
--- เพิ่ม Toggle ใน Orion GUI
--- ====================================
+
+
+-- ================= Invisible Toggle =================
 MainTab:AddToggle({
-    Name = "Invisible (Ghost/Clone)",
+    Name = "Invisible",
     Default = false,
     Save = false,
-    Flag = "InvisibleGhostCloneToggle",
+    Flag = "InvisibleToggle",
     Callback = function(state)
         if state then
-            toggleInvisible(true)
+            TurnInvisible()
+            showNotification("Invisible", "You are now invisible", 3)
         else
             TurnVisible()
+            showNotification("Invisible", "You are now visible", 3)
         end
     end
 })
+
+
+
+
+
+
 
 
 
