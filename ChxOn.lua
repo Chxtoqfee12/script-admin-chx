@@ -224,7 +224,6 @@ end)
 
 
 
---// Services
 --// Invisible Script Function (Toggle)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -237,8 +236,7 @@ local Character, InvisibleCharacter
 local invisFix, invisDied
 
 -- ฟังก์ชันเปิดโหมด Invisible
--- ฟังก์ชันเปิดโหมด Invisible
--- ฟังก์ชันเปิดโหมด Invisible
+
 local function TurnInvisible()
 	if invisRunning or IsInvis then return end
 	invisRunning = true
@@ -263,7 +261,7 @@ local function TurnInvisible()
 	end
 
 	-- ✅ ย้ายตัวจริงไปที่พิกัดไกลมาก ๆ (เพื่อนจะมองไม่เห็น)
-	Character:MoveTo(Vector3.new(0, math.pi * 1000000, 0))
+	Character:MoveTo(Vector3.new(0, math.pi * 1000, 0))
 
 	-- เปลี่ยนการควบคุมมาใช้ร่างโคลน
 	LocalPlayer.Character = InvisibleCharacter
