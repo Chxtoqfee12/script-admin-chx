@@ -219,6 +219,7 @@ end)
 -- Invisible (seat trick)
 local invis_on = false
 local invisSeatName = "invischair"
+local invisSeat = nil -- เก็บ reference ของ seat
 
 local function setTransparency(characterObj, transparency)
     for _, part in pairs(characterObj:GetDescendants()) do
@@ -230,70 +231,79 @@ end
 
 local function toggleInvisibility(state)
     invis_on = state
-    -- Sound
-    local gui = player:FindFirstChild("PlayerGui")
-    local soundParent = gui or player:FindFirstChildWhichIsA("PlayerGui") or player
-    local sound = soundParent:FindFirstChild("chx_invis_sound")
-    if not sound then
-        sound = Instance.new("Sound")
-        sound.Name = "chx_invis_sound"
-        sound.SoundId = "rbxassetid://942127495"
-        sound.Volume = 1
-        sound.Parent = soundParent
-    end
-    pcall(function() sound:Play() end)
 
-    if invis_on then
-        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-        local savedpos = player.Character.HumanoidRootPart.CFrame
-        task.wait()
-        -- move to far position then create seat
-        local seatPos = Vector3.new(-25.95, 84, 3537.55)
-        player.Character:MoveTo(seatPos)
-        task.wait(0.15)
-
-        -- create seat
-        local Seat = Instance.new("Seat")
-        Seat.Anchored = false
-        Seat.CanCollide = false
-        Seat.Transparency = 1
-        Seat.Size = Vector3.new(2,1,2)
-        Seat.Name = invisSeatName
-        Seat.CFrame = CFrame.new(seatPos)
-        Seat.Parent = workspace
-
-        local mesh = Instance.new("SpecialMesh", Seat)
-        mesh.MeshType = Enum.MeshType.Brick
-        mesh.Scale = Vector3.new(0,0,0)
-
-        local weld = Instance.new("Weld")
-        weld.Part0 = Seat
-        local torso = player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("UpperTorso")
-        weld.Part1 = torso
-        weld.Parent = Seat
-
-        task.wait()
-        Seat.CFrame = savedpos
-        if player.Character then setTransparency(player.Character, 0.5) end
-
-        showNotification("Invis (on)", "STATUS: Invisible enabled", 3)
-    else
-        local invisChair = workspace:FindFirstChild(invisSeatName)
-        if invisChair then invisChair:Destroy() end
-        if player.Character then setTransparency(player.Character, 0) end
+    -- ถ้าปิด invis ให้ลบ seat ทันที
+    if not invis_on then
+        if invisSeat and invisSeat.Parent then
+            invisSeat:Destroy()
+            invisSeat = nil
+        end
+        if player.Character then
+            setTransparency(player.Character, 0)
+        end
         showNotification("Invis (off)", "STATUS: Invisible disabled", 3)
+        return
     end
+
+    -- ถ้าเปิด invis
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+
+    local savedpos = player.Character.HumanoidRootPart.CFrame
+    task.wait()
+    local seatPos = Vector3.new(-25.95, 84, 3537.55)
+    player.Character:MoveTo(seatPos)
+    task.wait(0.15)
+
+    -- สร้าง seat
+    invisSeat = Instance.new("Seat")
+    invisSeat.Anchored = false
+    invisSeat.CanCollide = false
+    invisSeat.Transparency = 1
+    invisSeat.Size = Vector3.new(2,1,2)
+    invisSeat.Name = invisSeatName
+    invisSeat.CFrame = CFrame.new(seatPos)
+    invisSeat.Parent = workspace
+
+    local mesh = Instance.new("SpecialMesh", invisSeat)
+    mesh.MeshType = Enum.MeshType.Brick
+    mesh.Scale = Vector3.new(0,0,0)
+
+    local weld = Instance.new("Weld")
+    weld.Part0 = invisSeat
+    local torso = player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("UpperTorso")
+    if torso then
+        weld.Part1 = torso
+        weld.Parent = invisSeat
+    end
+
+    task.wait()
+    invisSeat.CFrame = savedpos
+    setTransparency(player.Character, 0.5)
+    showNotification("Invis (on)", "STATUS: Invisible enabled", 3)
 end
 
+-- Invisible Toggle
 MainTab:AddToggle({
     Name = "Invisible",
-    Default = false,
+    Default = false,  -- ต้อง false เพื่อไม่ให้เปิดตอนเริ่ม
     Save = false,
     Flag = "InvisibleToggle",
     Callback = function(state)
         toggleInvisibility(state)
     end
 })
+
+-- ===== Reset ทุกฟังก์ชันตอนเริ่มต้น =====
+currentValues.Noclip = false
+currentValues.InfinityJump = false
+invis_on = false
+invisSeat = nil
+if player.Character then
+    setNoclip(false)
+    -- ไม่เรียก toggleInvisibility(false) ตอนเริ่ม เพื่อไม่สร้าง seat
+    setTransparency(player.Character, 0)
+end
+
 
 -- Reset Button
 MainTab:AddButton({
