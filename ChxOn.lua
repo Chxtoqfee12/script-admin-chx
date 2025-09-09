@@ -1,6 +1,6 @@
 
 -- ========== Load Orion ==========
-local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/ChxOn.lib'))()
+local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/ChxOn.lib'))()
 
 -- ========== Services & Player ==========
 local Players = game:GetService("Players")
