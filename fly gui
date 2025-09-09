@@ -11,16 +11,22 @@ local closebutton = Instance.new("TextButton")
 local mini = Instance.new("TextButton")
 local mini2 = Instance.new("TextButton")
 
-main.Name = "main"
-main.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-main.ResetOnSpawn = false
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
+-- ใส่ main ลงใน PlayerGui
+main.Parent = PlayerGui
+
+-- สร้าง Frame เป็นลูกของ main
 Frame.Parent = main
 Frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
 Frame.BorderColor3 = Color3.fromRGB(103, 221, 213)
-Frame.Position = UDim2.new(0.100320168, 0, 0.379746825, 0)
+Frame.Position = UDim2.new(0.1, 0, 0.38, 0)
 Frame.Size = UDim2.new(0, 190, 0, 57)
+Frame.Active = true
+Frame.Draggable = true
+
 
 
 onof.Name = "onof"
@@ -89,6 +95,8 @@ mini2.Text = "+"
 mini2.TextSize = 40
 mini2.Position = UDim2.new(0, 44, -1, 57)
 mini2.Visible = false
+
+
 
 
 speeds = 1
