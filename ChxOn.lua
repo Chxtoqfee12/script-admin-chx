@@ -140,11 +140,14 @@ MainTab:AddSlider({
     end
 })
 
--- ========== Fly Function ==========
-
+-- ===== Fly Variables =====
 local flying = false
 local flySpeed = 50
 local BodyGyro, BodyVelocity
+local CAS = game:GetService("ContextActionService")
+
+-- ===== Fly Movement Direction =====
+local moveDir = Vector3.zero
 
 -- ===== Fly Function =====
 local function toggleFly(state)
@@ -165,26 +168,56 @@ local function toggleFly(state)
         BodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
         BodyVelocity.Parent = hrp
 
+        -- สำหรับมือถือ: ใช้ ContextActionService
+        local function moveAction(name, inputState, inputObj)
+            if inputState == Enum.UserInputState.Begin then
+                if name == "FlyUp" then moveDir = moveDir + Vector3.new(0,1,0)
+                elseif name == "FlyDown" then moveDir = moveDir + Vector3.new(0,-1,0)
+                elseif name == "FlyForward" then moveDir = moveDir + workspace.CurrentCamera.CFrame.LookVector
+                elseif name == "FlyBackward" then moveDir = moveDir - workspace.CurrentCamera.CFrame.LookVector
+                elseif name == "FlyLeft" then moveDir = moveDir - workspace.CurrentCamera.CFrame.RightVector
+                elseif name == "FlyRight" then moveDir = moveDir + workspace.CurrentCamera.CFrame.RightVector
+                end
+            elseif inputState == Enum.UserInputState.End then
+                if name == "FlyUp" then moveDir = moveDir - Vector3.new(0,1,0)
+                elseif name == "FlyDown" then moveDir = moveDir - Vector3.new(0,-1,0)
+                elseif name == "FlyForward" then moveDir = moveDir - workspace.CurrentCamera.CFrame.LookVector
+                elseif name == "FlyBackward" then moveDir = moveDir + workspace.CurrentCamera.CFrame.LookVector
+                elseif name == "FlyLeft" then moveDir = moveDir + workspace.CurrentCamera.CFrame.RightVector
+                elseif name == "FlyRight" then moveDir = moveDir - workspace.CurrentCamera.CFrame.RightVector
+                end
+            end
+        end
+
+        -- Bind actions
+        CAS:BindAction("FlyUp", moveAction, false, Enum.KeyCode.Space)
+        CAS:BindAction("FlyDown", moveAction, false, Enum.KeyCode.LeftControl)
+        CAS:BindAction("FlyForward", moveAction, false, Enum.KeyCode.W)
+        CAS:BindAction("FlyBackward", moveAction, false, Enum.KeyCode.S)
+        CAS:BindAction("FlyLeft", moveAction, false, Enum.KeyCode.A)
+        CAS:BindAction("FlyRight", moveAction, false, Enum.KeyCode.D)
+
         spawn(function()
             while flying and task.wait() do
                 local camCF = workspace.CurrentCamera.CFrame
                 BodyGyro.CFrame = camCF
-
-                local move = Vector3.zero
-                if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + camCF.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - camCF.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - camCF.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + camCF.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0,1,0) end
-                if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move = move + Vector3.new(0,-1,0) end
-
-                BodyVelocity.Velocity = move * flySpeed
+                BodyVelocity.Velocity = moveDir.Unit * flySpeed
             end
         end)
     else
         flying = false
         if BodyGyro then BodyGyro:Destroy() BodyGyro = nil end
         if BodyVelocity then BodyVelocity:Destroy() BodyVelocity = nil end
+
+        -- Unbind actions
+        CAS:UnbindAction("FlyUp")
+        CAS:UnbindAction("FlyDown")
+        CAS:UnbindAction("FlyForward")
+        CAS:UnbindAction("FlyBackward")
+        CAS:UnbindAction("FlyLeft")
+        CAS:UnbindAction("FlyRight")
+
+        moveDir = Vector3.zero
     end
 end
 
