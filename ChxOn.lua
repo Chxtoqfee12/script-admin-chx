@@ -128,108 +128,41 @@ MainTab:AddSlider({
     end
 })
 
-MainTab:AddSlider({
-    Name = "Fly Speed",
-    Min = 10,
-    Max = 200,
-    Default = flySpeed,
-    Increment = 5,
-    Suffix = "Speed",
-    Callback = function(Value)
-        flySpeed = Value
-    end
-})
+-- Fly GUI loader (keeps logic: loads external GUI once, enable/disable)
+local flyLoaded = false
+local flyGui = nil
 
--- ===== Fly Variables =====
-local flying = false
-local flySpeed = 50
-local BodyGyro, BodyVelocity
-local CAS = game:GetService("ContextActionService")
-
--- ===== Fly Movement Direction =====
-local moveDir = Vector3.zero
-
--- ===== Fly Function =====
-local function toggleFly(state)
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
-
-    if state then
-        flying = true
-
-        BodyGyro = Instance.new("BodyGyro")
-        BodyGyro.P = 9e4
-        BodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
-        BodyGyro.CFrame = hrp.CFrame
-        BodyGyro.Parent = hrp
-
-        BodyVelocity = Instance.new("BodyVelocity")
-        BodyVelocity.Velocity = Vector3.new(0,0,0)
-        BodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-        BodyVelocity.Parent = hrp
-
-        -- สำหรับมือถือ: ใช้ ContextActionService
-        local function moveAction(name, inputState, inputObj)
-            if inputState == Enum.UserInputState.Begin then
-                if name == "FlyUp" then moveDir = moveDir + Vector3.new(0,1,0)
-                elseif name == "FlyDown" then moveDir = moveDir + Vector3.new(0,-1,0)
-                elseif name == "FlyForward" then moveDir = moveDir + workspace.CurrentCamera.CFrame.LookVector
-                elseif name == "FlyBackward" then moveDir = moveDir - workspace.CurrentCamera.CFrame.LookVector
-                elseif name == "FlyLeft" then moveDir = moveDir - workspace.CurrentCamera.CFrame.RightVector
-                elseif name == "FlyRight" then moveDir = moveDir + workspace.CurrentCamera.CFrame.RightVector
-                end
-            elseif inputState == Enum.UserInputState.End then
-                if name == "FlyUp" then moveDir = moveDir - Vector3.new(0,1,0)
-                elseif name == "FlyDown" then moveDir = moveDir - Vector3.new(0,-1,0)
-                elseif name == "FlyForward" then moveDir = moveDir - workspace.CurrentCamera.CFrame.LookVector
-                elseif name == "FlyBackward" then moveDir = moveDir + workspace.CurrentCamera.CFrame.LookVector
-                elseif name == "FlyLeft" then moveDir = moveDir + workspace.CurrentCamera.CFrame.RightVector
-                elseif name == "FlyRight" then moveDir = moveDir - workspace.CurrentCamera.CFrame.RightVector
-                end
-            end
-        end
-
-        -- Bind actions
-        CAS:BindAction("FlyUp", moveAction, false, Enum.KeyCode.Space)
-        CAS:BindAction("FlyDown", moveAction, false, Enum.KeyCode.LeftControl)
-        CAS:BindAction("FlyForward", moveAction, false, Enum.KeyCode.W)
-        CAS:BindAction("FlyBackward", moveAction, false, Enum.KeyCode.S)
-        CAS:BindAction("FlyLeft", moveAction, false, Enum.KeyCode.A)
-        CAS:BindAction("FlyRight", moveAction, false, Enum.KeyCode.D)
-
-        spawn(function()
-            while flying and task.wait() do
-                local camCF = workspace.CurrentCamera.CFrame
-                BodyGyro.CFrame = camCF
-                BodyVelocity.Velocity = moveDir.Unit * flySpeed
-            end
-        end)
-    else
-        flying = false
-        if BodyGyro then BodyGyro:Destroy() BodyGyro = nil end
-        if BodyVelocity then BodyVelocity:Destroy() BodyVelocity = nil end
-
-        -- Unbind actions
-        CAS:UnbindAction("FlyUp")
-        CAS:UnbindAction("FlyDown")
-        CAS:UnbindAction("FlyForward")
-        CAS:UnbindAction("FlyBackward")
-        CAS:UnbindAction("FlyLeft")
-        CAS:UnbindAction("FlyRight")
-
-        moveDir = Vector3.zero
-    end
-end
-
--- ===== Fly UI in MainTab =====
 MainTab:AddToggle({
-    Name = "Fly",
+    Name = "Fly function",
     Default = false,
-    Callback = function(Value)
-        toggleFly(Value)
+    Save = false,
+    Flag = "FlyFunctionToggle",
+    Callback = function(state)
+        if state then
+            if not flyLoaded then
+                local success, err = pcall(function()
+                    -- original link used: chx fly gui
+                    loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/fly%20gui', true))()
+                end)
+                if not success then
+                    warn("ไม่สามารถโหลด Fly GUI ได้: "..tostring(err))
+                    showNotification("Fly GUI", "โหลดไม่สำเร็จ: "..tostring(err), 4)
+                    return
+                end
+                -- wait for GUI
+                flyGui = player:WaitForChild("PlayerGui"):FindFirstChild("main")
+                if flyGui then
+                    flyGui.Enabled = true
+                    flyLoaded = true
+                end
+            else
+                if flyGui then flyGui.Enabled = true end
+            end
+        else
+            if flyGui then flyGui.Enabled = false end
+        end
     end
 })
-
 
 
 
@@ -256,6 +189,7 @@ local function setNoclip(state)
         end
     end
 end
+
 
 MainTab:AddToggle({
     Name = "Noclip",
