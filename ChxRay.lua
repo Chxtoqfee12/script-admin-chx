@@ -157,86 +157,144 @@ local LocalPlayer = Players.LocalPlayer
 --invisible--
 ------------------------------------------------------
 
---invisible--
--- Sound
-local sound = Instance.new("Sound", player:WaitForChild("PlayerGui"))
-sound.SoundId = "rbxassetid://942127495"
-sound.Volume = 1
+-- ================= Invisible Toggle =================
+local invisRunning = false
+local IsInvis = false
+local Character, InvisibleCharacter
+local bodyPos
+local invisDied
 
--- Set Transparency
-local function setTransparency(character, transparency)
-    for _, part in pairs(character:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("Decal") then
-            part.Transparency = transparency
+local function TurnInvisible()
+    if invisRunning or IsInvis then return end
+    invisRunning = true
+
+    Character = LocalPlayer.Character
+    if not Character then return end
+    Character.Archivable = true
+
+    -- Clone ตัวละคร
+    InvisibleCharacter = Character:Clone()
+    InvisibleCharacter.Parent = workspace
+
+    -- ปรับความโปร่งใส
+    for _, v in pairs(InvisibleCharacter:GetDescendants()) do
+        if v:IsA("BasePart") then
+            if v.Name == "HumanoidRootPart" then
+                v.Transparency = 1
+            else
+                v.Transparency = 0.5
+            end
         end
     end
-end
 
--- Variables
-local invis_on = false
-
--- Toggle Invisible Function
-local function toggleInvisibility(state)
-    invis_on = state
-    sound:Play()
-
-    if invis_on then
-        local savedpos = player.Character.HumanoidRootPart.CFrame
-        task.wait()
-        player.Character:MoveTo(Vector3.new(-25.95, 84, 3537.55))
-        task.wait(0.15)
-
-        local Seat = Instance.new("Seat")
-        Seat.Anchored = false
-        Seat.CanCollide = false
-        Seat.Transparency = 1 -- มองไม่เห็น
-        Seat.Size = Vector3.new(2, 1, 2) -- ขนาดปกติ (แต่เดี๋ยวจะย่อด้วย Mesh)
-        Seat.Name = "invischair"
-        Seat.CFrame = CFrame.new(-25.95, 84, 3537.55)
-        Seat.Parent = workspace
-
-        -- ใส่ Mesh เพื่อหดจนหายไป
-        local mesh = Instance.new("SpecialMesh", Seat)
-        mesh.MeshType = Enum.MeshType.Brick
-        mesh.Scale = Vector3.new(0, 0, 0) -- หดจนไม่เหลือภาพ
-
-        -- Weld ติดกับตัวละคร
-        local Weld = Instance.new("Weld", Seat)
-        Weld.Part0 = Seat
-        Weld.Part1 = player.Character:FindFirstChild("Torso") or player.Character:FindFirstChild("UpperTorso")
-
-
-        task.wait()
-        Seat.CFrame = savedpos
-        setTransparency(player.Character, 0.5)
-
-        game.StarterGui:SetCore("SendNotification", {
-            Title = "Invis (on)",
-            Duration = 3,
-            Text = "STATUS:"
-        })
-    else
-        local invisChair = workspace:FindFirstChild("invischair")
-        if invisChair then invisChair:Destroy() end
-        setTransparency(player.Character, 0)
-
-        game.StarterGui:SetCore("SendNotification", {
-            Title = "Invis (off)",
-            Duration = 3,
-            Text = "STATUS:"
-        })
+    -- ย้ายร่างจริงกลางอากาศ
+    local root = Character:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.CFrame = root.CFrame + Vector3.new(0,600,0)
+        bodyPos = Instance.new("BodyPosition")
+        bodyPos.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bodyPos.P = 3e4
+        bodyPos.Position = root.Position
+        bodyPos.Parent = root
     end
+
+    -- เปลี่ยน Character ให้ควบคุม Invisible
+    LocalPlayer.Character = InvisibleCharacter
+    IsInvis = true
+
+    -- กล้องตามโคลน
+    local humanoid = InvisibleCharacter:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        workspace.CurrentCamera.CameraSubject = humanoid
+    end
+
+    -- ปิด/เปิด Animate ให้รีเฟรช
+    InvisibleCharacter:FindFirstChild("Animate").Disabled = true
+    InvisibleCharacter:FindFirstChild("Animate").Disabled = false
+
+    -- ตรวจจับถ้าตาย
+    invisDied = humanoid.Died:Connect(function()
+        TurnVisible()
+    end)
+
+    invisRunning = false
+    print("Invisible: ON")
 end
 
--- ปุ่มสวิตช์ Invisible (Rayfield)
-Tab:CreateToggle({
+function TurnVisible()
+    if not IsInvis then return end
+
+    -- เก็บตำแหน่งปัจจุบันของโคลน
+    local CF
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if root then CF = root.CFrame end
+
+    -- ลบร่างโคลน
+    if InvisibleCharacter then
+        InvisibleCharacter:Destroy()
+        InvisibleCharacter = nil
+    end
+
+    -- เอาตัวจริงกลับมา
+    if Character and Character.Parent then
+        LocalPlayer.Character = Character
+        if CF and Character:FindFirstChild("HumanoidRootPart") then
+            Character.HumanoidRootPart.CFrame = CF
+        end
+        workspace.CurrentCamera.CameraSubject = Character:FindFirstChildOfClass("Humanoid")
+    end
+
+    -- ลบ BodyPosition
+    if bodyPos then
+        bodyPos:Destroy()
+        bodyPos = nil
+    end
+
+    -- รีเฟรช Animate
+    if Character:FindFirstChild("Animate") then
+        Character.Animate.Disabled = true
+        Character.Animate.Disabled = false
+    end
+
+    -- Disconnect event
+    if invisDied then
+        invisDied:Disconnect()
+        invisDied = nil
+    end
+
+    IsInvis = false
+    print("Invisible: OFF")
+end
+
+-- Toggle Invisible
+local invisibleToggle = Tab:CreateToggle({
     Name = "Invisible",
     CurrentValue = false,
     Flag = "InvisibleToggle",
-    Callback = function(state)
-        toggleInvisibility(state)
+    Callback = function(value)
+        if value then
+            -- ใช้ pcall กัน error
+            local success, err = pcall(function()
+                TurnInvisible()
+            end)
+            if not success then
+                warn("TurnInvisible error: "..tostring(err))
+            else
+                showNotification("Invisible: ON")
+            end
+        else
+            local success, err = pcall(function()
+                TurnVisible()
+            end)
+            if not success then
+                warn("TurnVisible error: "..tostring(err))
+            else
+                showNotification("Invisible: OFF")
+            end
+        end
     end
 })
+
 
 
 ------------------------------------------------------
