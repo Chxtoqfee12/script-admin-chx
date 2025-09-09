@@ -266,7 +266,7 @@ local function TurnInvisible()
 		local pos = root.Position
 
 		-- ย้ายไปสูงขึ้น 200 studs
-		root.CFrame = CFrame.new(pos.X, pos.Y + 200, pos.Z)
+		root.CFrame = CFrame.new(pos.X, pos.Y +600, pos.Z)
 
 		-- ใส่ BodyPosition ให้ลอยนิ่ง
 		bodyPos = Instance.new("BodyPosition")
