@@ -128,41 +128,77 @@ MainTab:AddSlider({
     end
 })
 
--- Fly GUI loader (keeps logic: loads external GUI once, enable/disable)
-local flyLoaded = false
-local flyGui = nil
-
-MainTab:AddToggle({
-    Name = "Fly function",
-    Default = false,
-    Save = false,
-    Flag = "FlyFunctionToggle",
-    Callback = function(state)
-        if state then
-            if not flyLoaded then
-                local success, err = pcall(function()
-                    -- original link used: chx fly gui
-                    loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/fly%20gui', true))()
-                end)
-                if not success then
-                    warn("ไม่สามารถโหลด Fly GUI ได้: "..tostring(err))
-                    showNotification("Fly GUI", "โหลดไม่สำเร็จ: "..tostring(err), 4)
-                    return
-                end
-                -- wait for GUI
-                flyGui = player:WaitForChild("PlayerGui"):FindFirstChild("main")
-                if flyGui then
-                    flyGui.Enabled = true
-                    flyLoaded = true
-                end
-            else
-                if flyGui then flyGui.Enabled = true end
-            end
-        else
-            if flyGui then flyGui.Enabled = false end
-        end
+MainTab:AddSlider({
+    Name = "Fly Speed",
+    Min = 10,
+    Max = 200,
+    Default = flySpeed,
+    Increment = 5,
+    Suffix = "Speed",
+    Callback = function(Value)
+        flySpeed = Value
     end
 })
+
+-- ========== Fly Function ==========
+
+local flying = false
+local flySpeed = 50
+local BodyGyro, BodyVelocity
+
+-- ===== Fly Function =====
+local function toggleFly(state)
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+
+    if state then
+        flying = true
+
+        BodyGyro = Instance.new("BodyGyro")
+        BodyGyro.P = 9e4
+        BodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        BodyGyro.CFrame = hrp.CFrame
+        BodyGyro.Parent = hrp
+
+        BodyVelocity = Instance.new("BodyVelocity")
+        BodyVelocity.Velocity = Vector3.new(0,0,0)
+        BodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        BodyVelocity.Parent = hrp
+
+        spawn(function()
+            while flying and task.wait() do
+                local camCF = workspace.CurrentCamera.CFrame
+                BodyGyro.CFrame = camCF
+
+                local move = Vector3.zero
+                if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + camCF.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - camCF.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - camCF.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + camCF.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0,1,0) end
+                if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move = move + Vector3.new(0,-1,0) end
+
+                BodyVelocity.Velocity = move * flySpeed
+            end
+        end)
+    else
+        flying = false
+        if BodyGyro then BodyGyro:Destroy() BodyGyro = nil end
+        if BodyVelocity then BodyVelocity:Destroy() BodyVelocity = nil end
+    end
+end
+
+-- ===== Fly UI in MainTab =====
+MainTab:AddToggle({
+    Name = "Fly",
+    Default = false,
+    Callback = function(Value)
+        toggleFly(Value)
+    end
+})
+
+
+
 
 -- Noclip Toggle
 local noclipConnection = nil
