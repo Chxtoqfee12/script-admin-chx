@@ -142,7 +142,7 @@ MainTab:AddToggle({
             if not flyLoaded then
                 local success, err = pcall(function()
                     -- original link used: chx fly gui
-                    loadstring(game:HttpGet('https://github.com/Chxtoqfee12/script-admin-chx/edit/SRC/fly%20gui', true))()
+                    loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/fly%20gui', true))()
                 end)
                 if not success then
                     warn("ไม่สามารถโหลด Fly GUI ได้: "..tostring(err))
