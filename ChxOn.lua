@@ -133,7 +133,7 @@ local flyLoaded = false
 local flyGui = nil
 
 MainTab:AddToggle({
-    Name = "Fly function",
+    Name = "Fly Function",
     Default = false,
     Save = false,
     Flag = "FlyFunctionToggle",
