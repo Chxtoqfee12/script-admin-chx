@@ -383,24 +383,45 @@ local function showNotification(message)
     end)
 end
 
--- UI Window (สมมติ Window object มีอยู่)
-local followTab = Window:CreateTab("Follow player", "compass")
 
--- ================== ฟังก์ชัน Follow/Noclip ==================
-local following = false
+
+
+
+local Tab = Window:CreateTab("Follow Player", 4483362458) -- 4483362458 เป็นไอคอนสมมติ
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+-- ตัวแปรหลัก
 local targetPlayer = nil
+local following = false
 local followConnection = nil
 local noclipConnection = nil
-local flyAnimationEnabled = false
-local followAnimation = nil
-local flyLoaded = false
-local flyGui = nil
+local activeAnimation = nil
+local attachmentLoop = nil
 
+-- Animation IDs
+local animBangedR15 = "10714360343"
+local animBangedR6  = "189854234"
+local animSuckR15   = "5918726674"
+local animSuckR6    = "178130996"
+
+-- ฟังก์ชันเช็ค Rig
+local function isR6Character(plr)
+    local char = plr and plr.Character
+    if not char then return false end
+    return char:FindFirstChild("Torso") ~= nil
+end
+
+-- ฟังก์ชัน Noclip
 local function setNoclip(state)
     if state then
         noclipConnection = RunService.Stepped:Connect(function()
-            if player.Character then
-                for _, part in pairs(player.Character:GetDescendants()) do
+            if LocalPlayer.Character then
+                for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = false
                     end
@@ -415,63 +436,102 @@ local function setNoclip(state)
     end
 end
 
+-- ฟังก์ชันหยุดทุกท่า
+local function stopAction()
+    following = false
+    if followConnection then followConnection:Disconnect() followConnection = nil end
+    if noclipConnection then noclipConnection:Disconnect() noclipConnection = nil end
+    if attachmentLoop then attachmentLoop:Disconnect() attachmentLoop = nil end
+    if activeAnimation then activeAnimation:Stop() activeAnimation = nil end
+end
+
+-- ฟังก์ชัน Banged
+local function startBanged()
+    if not targetPlayer or not targetPlayer.Character then return end
+    stopAction()
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://"..(isR6Character(LocalPlayer) and animBangedR6 or animBangedR15)
+        activeAnimation = humanoid:LoadAnimation(anim)
+        activeAnimation:Play()
+    end
+
+    -- ลูปเคลื่อนที่ใกล้เป้าเหมือน R6/R15 script
+    task.spawn(function()
+        while activeAnimation and targetPlayer.Character do
+            local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if targetHRP and myHRP then
+                local fwd, bwd
+                if isR6Character(LocalPlayer) then
+                    fwd = targetHRP.CFrame * CFrame.new(0,0,-2.5)
+                    bwd = targetHRP.CFrame * CFrame.new(0,0,-1.3)
+                else
+                    fwd = targetHRP.CFrame * CFrame.new(0,0,-1.5)
+                    bwd = targetHRP.CFrame * CFrame.new(0,0,-1.1)
+                end
+                TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=fwd}):Play()
+                task.wait(0.15)
+                TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=bwd}):Play()
+                task.wait(0.15)
+            else
+                stopAction()
+                break
+            end
+        end
+    end)
+end
+
+-- ฟังก์ชัน Suck
+local function startSuck()
+    if not targetPlayer or not targetPlayer.Character then return end
+    stopAction()
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    local targetTorso = targetPlayer.Character:FindFirstChild("LowerTorso") or targetPlayer.Character:FindFirstChild("UpperTorso")
+    if humanoid then
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://"..(isR6Character(LocalPlayer) and animSuckR6 or animSuckR15)
+        activeAnimation = humanoid:LoadAnimation(anim)
+        activeAnimation:Play()
+    end
+    attachmentLoop = RunService.Heartbeat:Connect(function()
+        if targetTorso and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+            LocalPlayer.Character.PrimaryPart.CFrame = targetTorso.CFrame * CFrame.new(0,-2.3,-1) * CFrame.Angles(0,math.pi,0)
+        else
+            stopAction()
+        end
+    end)
+end
+
+-- ฟังก์ชัน Follow
 local function startFollowing()
     if targetPlayer and targetPlayer.Character then
         followConnection = RunService.Heartbeat:Connect(function()
-            if player.Character and targetPlayer.Character then
-                local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-                local char = player.Character
-                local root = char:FindFirstChild("HumanoidRootPart")
-
-                if targetRoot and root then
-                    local offsetPos = targetRoot.Position + (targetRoot.CFrame.LookVector * -2)
-                    root.CFrame = CFrame.lookAt(offsetPos, targetRoot.Position)
-                end
-
-                if flyAnimationEnabled and followAnimation then
-                    local humanoid = char:FindFirstChild("Humanoid")
-                    if humanoid then
-                        local animator = humanoid:FindFirstChildOfClass("Animator")
-                        if not animator then
-                            animator = Instance.new("Animator")
-                            animator.Parent = humanoid
-                        end
-                        local isPlaying = false
-                        for _, anim in pairs(animator:GetPlayingAnimationTracks()) do
-                            if anim.Animation == followAnimation then
-                                isPlaying = true
-                                break
-                            end
-                        end
-                        if not isPlaying then
-                            animator:LoadAnimation(followAnimation):Play()
-                        end
-                    end
+            if LocalPlayer.Character and targetPlayer.Character then
+                local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if targetHRP and myHRP then
+                    local newCFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0,0,1), 0.1)
+                    myHRP.CFrame = newCFrame
                 end
             end
         end)
     end
 end
 
-local function stopFollowing()
-    if followConnection then
-        followConnection:Disconnect()
-        followConnection = nil
-    end
-end
-
+-- รายชื่อผู้เล่น
 local function GetPlayerList()
-    local names = {}
+    local list = {}
     for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player then
-            table.insert(names, plr.Name)
-        end
+        if plr ~= LocalPlayer then table.insert(list, plr.Name) end
     end
-    return names
+    return list
 end
 
--- ================== Follow Dropdown & Toggles ==================
-local playerDropdown = followTab:CreateDropdown({
+
+-- Dropdown เลือกผู้เล่น
+local playerDropdown = Tab:CreateDropdown({
     Name = "Select Player",
     Options = GetPlayerList(),
     CurrentOption = {},
@@ -485,55 +545,43 @@ local playerDropdown = followTab:CreateDropdown({
     end,
 })
 
-followTab:CreateButton({
+-- Refresh button
+Tab:CreateButton({
     Name = "Refresh Player List",
     Callback = function()
         playerDropdown:Set(GetPlayerList())
     end
 })
 
-followTab:CreateToggle({
+-- Toggle Follow
+Tab:CreateToggle({
     Name = "Follow Player",
     CurrentValue = false,
     Flag = "FollowToggle",
     Callback = function(Value)
-        following = Value
-        if following then
+        if Value then
             setNoclip(true)
             startFollowing()
         else
-            setNoclip(false)
-            stopFollowing()
+            stopAction()
         end
     end,
 })
 
-followAnimation = Instance.new("Animation")
-followAnimation.AnimationId = "rbxassetid://1234567890"
+-- Toggle Banged
+Tab:CreateToggle({
+    Name = "🎉 Banged",
+    CurrentValue = false,
+    Flag = "BangedToggle",
+    Callback = function(Value)
+        if Value then startBanged() else stopAction() end
+    end,
+})
 
+-- อัปเดตรายชื่อผู้เล่น
 Players.PlayerAdded:Connect(function() playerDropdown:Set(GetPlayerList()) end)
 Players.PlayerRemoving:Connect(function() playerDropdown:Set(GetPlayerList()) end)
 
--- ================== Script Buttons ==================
-local buttons = {
-    {name = "🎯 Bang", r6 = "https://pastebin.com/raw/n9XXsPRW", r15 = "https://pastebin.com/raw/Rsg7hyWE"},
-    {name = "🎉 Banged", r6 = "https://pastebin.com/raw/xGA5WRef", r15 = "https://pastebin.com/raw/6Arx6t4V"},
-    {name = "💥 Suck", r6 = "https://pastebin.com/raw/2dwnBT3i", r15 = "https://pastebin.com/raw/mH7BTYcB"},
-    {name = "⚡ Jerk", r6 = "https://pastefy.app/wa3v2Vgm/raw", r15 = "https://pastefy.app/YZoglOyJ/raw"}
-}
-
-for _, buttonData in ipairs(buttons) do
-    followTab:CreateButton({
-        Name = buttonData.name,
-        Callback = function()
-            if isR6 then
-                loadstring(game:HttpGet(buttonData.r6))()
-            else
-                loadstring(game:HttpGet(buttonData.r15))()
-            end
-        end
-    })
-end
 
 
 
