@@ -590,10 +590,10 @@ Tab:CreateToggle({
 
 
 local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
+local Players = game:GetService("Players")
 local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
 
--- Tab ESP
 local espTab = Window:CreateTab("ESP", "eye")
 
 -- Variables
@@ -601,129 +601,154 @@ local espEnabled = false
 local showName = true
 local showDistance = true
 local showBox = true
-local textSize = 14 -- ขนาดเริ่มต้น
+local textSize = 14
 
 local ESPs = {}
 
--- Function to create ESP for a player
+-- ScreenGui
+local screenGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("ESP_ScreenGui")
+if not screenGui then
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ESP_ScreenGui"
+    screenGui.IgnoreGuiInset = true
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- ฟังก์ชันสร้าง ESP
 local function createESP(plr)
     if plr == LocalPlayer then return end
-    local char = plr.Character or plr.CharacterAdded:Wait()
-    local root = char:WaitForChild("HumanoidRootPart")
+    if ESPs[plr] then return end
 
-    -- BillboardGui for Name + Distance
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESP_"..plr.Name
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.Adornee = root
-    billboard.AlwaysOnTop = true
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.Enabled = false -- ปิดไว้ก่อน
-    billboard.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    -- กรอบ
+    local boxFrame = Instance.new("Frame")
+    boxFrame.Name = "ESP_Box_"..plr.Name
+    boxFrame.BackgroundTransparency = 1
+    boxFrame.AnchorPoint = Vector2.new(0,0)
+    boxFrame.Visible = false
+    boxFrame.ZIndex = 2
+    boxFrame.Parent = screenGui
 
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 0, 0)
-    label.TextScaled = false -- ปรับให้ Slider ใช้ได้
-    label.TextStrokeTransparency = 0
-    label.Font = Enum.Font.SourceSansBold
-    label.TextSize = textSize
-    label.Parent = billboard
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(0, 255, 0)
+    stroke.Parent = boxFrame
 
-    -- Box around character
-    local box = Instance.new("BoxHandleAdornment")
-    box.Adornee = root
-    box.AlwaysOnTop = true
-    box.Size = Vector3.new(2, 5, 1)
-    box.Color3 = Color3.fromRGB(255, 0, 0)
-    box.Transparency = 0.5
-    box.Visible = false -- ปิดไว้ก่อน
-    box.Parent = workspace
+    -- ข้อความ (ชื่อ + ระยะ)
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Name = "ESP_Label_"..plr.Name
+    textLabel.Size = UDim2.new(0,200,0,20)
+    textLabel.AnchorPoint = Vector2.new(0.5,1) -- กึ่งกลาง, อยู่เหนือหัว
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = Color3.fromRGB(255,255,255)
+    textLabel.TextStrokeTransparency = 0
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.TextSize = textSize
+    textLabel.Visible = false
+    textLabel.ZIndex = 3
+    textLabel.Parent = screenGui
 
-    ESPs[plr] = {Billboard = billboard, Label = label, Box = box}
+    ESPs[plr] = {Box = boxFrame, Stroke = stroke, Label = textLabel}
 end
 
 local function removeESP(plr)
     if ESPs[plr] then
-        if ESPs[plr].Billboard then ESPs[plr].Billboard:Destroy() end
         if ESPs[plr].Box then ESPs[plr].Box:Destroy() end
+        if ESPs[plr].Label then ESPs[plr].Label:Destroy() end
         ESPs[plr] = nil
     end
 end
 
--- Update ESP each frame
+-- Update
 RunService.RenderStepped:Connect(function()
-    if espEnabled then
-        for plr, data in pairs(ESPs) do
-            local char = plr.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if root then
-                local label = data.Label
-                local box = data.Box
-                local billboard = data.Billboard
+    if not espEnabled then
+        for _, data in pairs(ESPs) do
+            data.Box.Visible = false
+            data.Label.Visible = false
+        end
+        return
+    end
 
-                -- เปิด/ปิด GUI ตาม Toggle
-                billboard.Enabled = showName or showDistance
-                box.Visible = showBox
+    for plr, data in pairs(ESPs) do
+        local char = plr.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local head = char and char:FindFirstChild("Head")
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
 
-                -- Update text
+        if hrp and head and humanoid and humanoid.Health > 0 then
+            local headPos, vis1 = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
+            local legPos, vis2 = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
+
+            if vis1 and vis2 then
+                -- คำนวณกล่อง
+                local height = math.abs(legPos.Y - headPos.Y)
+                local width = height * 0.45
+                local x = headPos.X - width/2
+                local y = headPos.Y
+
+                -- อัปเดตกล่อง
+                data.Box.Size = UDim2.new(0, width, 0, height)
+                data.Box.Position = UDim2.new(0, x, 0, y)
+                data.Box.Visible = showBox
+
+                -- อัปเดตข้อความ
                 local text = ""
-                if showName then text = text..plr.Name.." " end
+                if showName then text = text..plr.Name end
                 if showDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
-                    text = text.."("..math.floor(dist).."m)"
+                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+                    if #text > 0 then text = text.." " end
+                    text = text..math.floor(dist).." Studs"
                 end
-                label.Text = text
-                label.TextSize = textSize
+                data.Label.Text = text
+                data.Label.TextSize = textSize
+                data.Label.Position = UDim2.new(0, headPos.X, 0, headPos.Y - 10)
+                data.Label.Visible = (text ~= "")
             else
-                removeESP(plr)
+                data.Box.Visible = false
+                data.Label.Visible = false
             end
+        else
+            data.Box.Visible = false
+            data.Label.Visible = false
         end
     end
 end)
 
--- Add ESP to players
-Players.PlayerAdded:Connect(function(plr)
-    createESP(plr)
-end)
-Players.PlayerRemoving:Connect(function(plr)
-    removeESP(plr)
-end)
+-- Player events
+Players.PlayerAdded:Connect(createESP)
+Players.PlayerRemoving:Connect(removeESP)
+for _, plr in pairs(Players:GetPlayers()) do
+    if plr ~= LocalPlayer then createESP(plr) end
+end
 
--- GUI Toggles
+-- GUI Controls
 espTab:CreateToggle({
     Name = "Enable ESP",
     CurrentValue = false,
-    Callback = function(val)
-        espEnabled = val
-        if val then
-            for _, plr in pairs(Players:GetPlayers()) do
-                if not ESPs[plr] then
-                    createESP(plr)
-                end
-            end
-        else
-            for plr,_ in pairs(ESPs) do removeESP(plr) end
-        end
-    end
+    Callback = function(val) espEnabled = val end
 })
-
-espTab:CreateToggle({Name = "Show Name", CurrentValue = true, Callback = function(val) showName = val end})
-espTab:CreateToggle({Name = "Show Distance", CurrentValue = true, Callback = function(val) showDistance = val end})
-espTab:CreateToggle({Name = "Show Box", CurrentValue = true, Callback = function(val) showBox = val end})
-
--- Slider ปรับขนาดตัวอักษร
+espTab:CreateToggle({
+    Name = "Show Name",
+    CurrentValue = true,
+    Callback = function(val) showName = val end
+})
+espTab:CreateToggle({
+    Name = "Show Distance",
+    CurrentValue = true,
+    Callback = function(val) showDistance = val end
+})
+espTab:CreateToggle({
+    Name = "Show Box",
+    CurrentValue = true,
+    Callback = function(val) showBox = val end
+})
 espTab:CreateSlider({
     Name = "Text Size",
-    Range = {8, 40},
+    Range = {8,40},
     Increment = 1,
     Suffix = "px",
     CurrentValue = textSize,
-    Flag = "TextSizeSlider",
-    Callback = function(val)
-        textSize = val
-    end
+    Callback = function(val) textSize = val end
 })
 
 
