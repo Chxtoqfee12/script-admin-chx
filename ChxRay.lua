@@ -1,4 +1,8 @@
--- ================== Anti-Cheat Bypass ก่อน ==================
+-- ================== โหลด UI หลังจากนั้น ==================
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/chxRay.lib'))()
+local player = game.Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 -- กัน kick
 for i, v in pairs(getreg()) do
@@ -6,7 +10,11 @@ for i, v in pairs(getreg()) do
         local info = getinfo(v)
         if info.name == "kick" then
             hookfunction(info.func, function(...) return nil end)
-            print("Kick function hooked and blocked.")
+            Rayfield:Notify({
+                Title = "Anti-Cheat",
+                Content = "Kick function ถูกปิดการทำงานแล้ว",
+                Duration = 5
+            })
         end
     end
 end
@@ -15,13 +23,14 @@ end
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
-    local args = {...}
-
     if not checkcaller() and self.Name == "Anti_Cheat_Remote" and method == "FireServer" then
-        print("Anti Cheat remote was called and blocked.")
+        Rayfield:Notify({
+            Title = "Anti-Cheat",
+            Content = "บล็อก Anti_Cheat_Remote:FireServer() แล้ว",
+            Duration = 5
+        })
         return wait(9e9)
     end
-
     return oldNamecall(self, ...)
 end)
 
@@ -39,18 +48,19 @@ if game.PlaceId == 6839171747 then
         game.Players.LocalPlayer.PlayerGui.MainUI.Initiator.Main_Game.RemoteListener.Disabled = true
     end)
     if success then
-        print("RemoteListener Disabled สำหรับ Map 6839171747")
+        Rayfield:Notify({
+            Title = "Map Bypass",
+            Content = "ปิด RemoteListener และลบ DoorHitbox สำเร็จ",
+            Duration = 6
+        })
     else
-        warn("ไม่สามารถปิด RemoteListener ได้:", err)
+        Rayfield:Notify({
+            Title = "Map Bypass",
+            Content = "เกิดข้อผิดพลาด: " .. tostring(err),
+            Duration = 6
+        })
     end
 end
-
-
--- ================== โหลด UI หลังจากนั้น ==================
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/chxRay.lib'))()
-local player = game.Players.LocalPlayer
-local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
 local currentValues = {
     WalkSpeed = 16,
