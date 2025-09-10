@@ -1,3 +1,32 @@
+-- ================== Anti-Cheat Bypass ก่อน ==================
+
+-- กัน kick
+for i, v in pairs(getreg()) do
+    if type(v) == "function" then
+        local info = getinfo(v)
+        if info.name == "kick" then
+            hookfunction(info.func, function(...) return nil end)
+            print("Kick function hooked and blocked.")
+        end
+    end
+end
+
+-- กัน Remote Anti-Cheat
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+
+    if not checkcaller() and self.Name == "Anti_Cheat_Remote" and method == "FireServer" then
+        print("Anti Cheat remote was called and blocked.")
+        return wait(9e9)
+    end
+
+    return oldNamecall(self, ...)
+end)
+
+
+-- ================== โหลด UI หลังจากนั้น ==================
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/chxRay.lib'))()
 local player = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
