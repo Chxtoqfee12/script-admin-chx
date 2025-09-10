@@ -520,37 +520,27 @@ local function startFollowing()
     end
 end
 
--- รายชื่อผู้เล่น
-local function GetPlayerList()
-    local list = {}
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then table.insert(list, plr.Name) end
-    end
-    return list
-end
-
-
--- Dropdown เลือกผู้เล่น
-local playerDropdown = Tab:CreateDropdown({
-    Name = "Select Player",
-    Options = GetPlayerList(),
-    CurrentOption = {},
-    Flag = "TargetPlayer",
-    Callback = function(option)
-        if option and option[1] then
-            targetPlayer = Players:FindFirstChild(option[1])
+-- ใช้ CreateInput แทน TextBox
+Tab:CreateInput({
+    Name = "Target Player",
+    PlaceholderText = "พิมพ์ชื่อผู้เล่น...",
+    RemoveTextAfterFocusLost = false,
+    Type = "Text",
+    Callback = function(text)
+        local found = nil
+        for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+            if plr.Name:lower() == text:lower() and plr ~= game.Players.LocalPlayer then
+                found = plr
+                break
+            end
+        end
+        targetPlayer = found
+        if targetPlayer then
+            print("Target set to: "..targetPlayer.Name)
         else
-            targetPlayer = nil
+            print("Player not found!")
         end
     end,
-})
-
--- Refresh button
-Tab:CreateButton({
-    Name = "Refresh Player List",
-    Callback = function()
-        playerDropdown:Set(GetPlayerList())
-    end
 })
 
 -- Toggle Follow
@@ -578,9 +568,15 @@ Tab:CreateToggle({
     end,
 })
 
--- อัปเดตรายชื่อผู้เล่น
-Players.PlayerAdded:Connect(function() playerDropdown:Set(GetPlayerList()) end)
-Players.PlayerRemoving:Connect(function() playerDropdown:Set(GetPlayerList()) end)
+-- Toggle suck
+Tab:CreateToggle({
+    Name = "🎉 Suck",
+    CurrentValue = false,
+    Flag = "SuckkToggle",
+    Callback = function(Value)
+        if Value then startSuck() else stopAction() end
+    end,
+})
 
 
 
