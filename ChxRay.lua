@@ -25,6 +25,26 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return oldNamecall(self, ...)
 end)
 
+-- ================== เงื่อนไข Map เฉพาะ (PlaceId) ==================
+if game.PlaceId == 6839171747 then
+    task.defer(function()
+        while task.wait() do
+            pcall(function()
+                workspace.CurrentRooms["0"].StarterElevator.DoorHitbox:Destroy()
+            end)
+        end
+    end)
+
+    local success, err = pcall(function()
+        game.Players.LocalPlayer.PlayerGui.MainUI.Initiator.Main_Game.RemoteListener.Disabled = true
+    end)
+    if success then
+        print("RemoteListener Disabled สำหรับ Map 6839171747")
+    else
+        warn("ไม่สามารถปิด RemoteListener ได้:", err)
+    end
+end
+
 
 -- ================== โหลด UI หลังจากนั้น ==================
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/chxRay.lib'))()
