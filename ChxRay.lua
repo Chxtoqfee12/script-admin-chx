@@ -78,7 +78,7 @@ Tab:CreateToggle({
             -- เปิด Fly GUI
             if not flyLoaded then
                 local success, err = pcall(function()
-                    loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/main/fly%20gui', true))()
+                    loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/fly%20gui', true))()
                 end)
                 if not success then
                     warn("ไม่สามารถโหลด Fly GUI ได้: "..tostring(err))
@@ -732,9 +732,142 @@ espTab:CreateSlider({
 
 
 
-local miscTab = Window:CreateTab("Misc", "cog")
+-- Services
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
 
+-- เก็บค่าเดิมของ Lighting
+local OriginalLighting = {
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    Brightness = Lighting.Brightness,
+    FogStart = Lighting.FogStart,
+    FogEnd = Lighting.FogEnd,
+    GlobalShadows = Lighting.GlobalShadows
+}
 
+-- เก็บค่าเดิมของวัตถุ
+local OriginalWorkspace = {}
+for _, obj in pairs(Workspace:GetDescendants()) do
+    if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+        local texID = nil
+        if pcall(function() return obj.TextureID end) then
+            texID = obj.TextureID
+        end
+        OriginalWorkspace[obj] = {
+            Material = obj.Material,
+            Reflectance = obj.Reflectance,
+            TextureID = texID
+        }
+    elseif obj:IsA("Decal") or obj:IsA("Texture") then
+        OriginalWorkspace[obj] = {Transparency = obj.Transparency}
+    elseif obj:IsA("ParticleEmitter") then
+        OriginalWorkspace[obj] = {Enabled = obj.Enabled}
+    end
+end
 
+-- ================= ภาษา =================
+local language = "EN" -- "TH" = ไทย, "EN" = อังกฤษ
+local LANG = {
+    EN = {
+        miscTab = "Misc",
+        miscSection = "Misc",
+        boostFPS = "Boost FPS",
+        removeFog = "Remove Fog",
+        brightenMap = "Brighten Map"
+    },
+    TH = {
+        miscTab = "ตั้งค่าอื่นๆ",
+        miscSection = "ตั้งค่าอื่นๆ",
+        boostFPS = "เพิ่ม FPS",
+        removeFog = "ลบหมอก",
+        brightenMap = "ทำแมพสว่าง"
+    }
+}
 
+-- ================= Misc Tab =================
+local MiscTab = Window:CreateTab(LANG[language].miscTab, 4483362458)
+local miscSection = MiscTab:CreateSection(LANG[language].miscSection)
+
+-- Boost FPS Toggle
+local boostFPSToggle = MiscTab:CreateToggle({
+    Name = LANG[language].boostFPS,
+    CurrentValue = false,
+    Callback = function(state)
+        if state then
+            Lighting.GlobalShadows = false
+            for _, v in pairs(Workspace:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.Material = Enum.Material.Plastic
+                    v.Reflectance = 0
+                    if pcall(function() return v.TextureID end) then
+                        v.TextureID = ""
+                    end
+                elseif v:IsA("MeshPart") then
+                    v.Material = Enum.Material.Plastic
+                    if pcall(function() return v.TextureID end) then
+                        v.TextureID = ""
+                    end
+                elseif v:IsA("Decal") or v:IsA("Texture") then
+                    v.Transparency = 1
+                elseif v:IsA("ParticleEmitter") then
+                    v.Enabled = false
+                end
+            end
+            print("Boost FPS: ON")
+        else
+            for obj, data in pairs(OriginalWorkspace) do
+                if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+                    obj.Material = data.Material
+                    obj.Reflectance = data.Reflectance
+                    if data.TextureID ~= nil then
+                        obj.TextureID = data.TextureID
+                    end
+                elseif obj:IsA("Decal") or obj:IsA("Texture") then
+                    obj.Transparency = data.Transparency
+                elseif obj:IsA("ParticleEmitter") then
+                    obj.Enabled = data.Enabled
+                end
+            end
+            Lighting.GlobalShadows = OriginalLighting.GlobalShadows
+            print("Boost FPS: OFF (ค่าเดิมถูกเรียกคืน)")
+        end
+    end
+})
+
+-- Remove Fog Toggle
+local removeFogToggle = MiscTab:CreateToggle({
+    Name = LANG[language].removeFog,
+    CurrentValue = false,
+    Callback = function(state)
+        if state then
+            Lighting.FogStart = 0
+            Lighting.FogEnd = 100000
+            print("Fog Removed: ON")
+        else
+            Lighting.FogStart = OriginalLighting.FogStart
+            Lighting.FogEnd = OriginalLighting.FogEnd
+            print("Fog Removed: OFF (ค่าเดิมถูกเรียกคืน)")
+        end
+    end
+})
+
+-- Brighten Map Toggle
+local brightenMapToggle = MiscTab:CreateToggle({
+    Name = LANG[language].brightenMap,
+    CurrentValue = false,
+    Callback = function(state)
+        if state then
+            Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+            Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+            Lighting.Brightness = 2
+            print("Map Brightened: ON")
+        else
+            Lighting.Ambient = OriginalLighting.Ambient
+            Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient
+            Lighting.Brightness = OriginalLighting.Brightness
+            print("Map Brightened: OFF (ค่าเดิมถูกเรียกคืน)")
+        end
+    end
+})
 
