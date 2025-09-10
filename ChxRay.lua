@@ -4,63 +4,6 @@ local player = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
--- กัน kick
-for i, v in pairs(getreg()) do
-    if type(v) == "function" then
-        local info = getinfo(v)
-        if info.name == "kick" then
-            hookfunction(info.func, function(...) return nil end)
-            Rayfield:Notify({
-                Title = "Anti-Cheat",
-                Content = "Kick function ถูกปิดการทำงานแล้ว",
-                Duration = 5
-            })
-        end
-    end
-end
-
--- กัน Remote Anti-Cheat
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    if not checkcaller() and self.Name == "Anti_Cheat_Remote" and method == "FireServer" then
-        Rayfield:Notify({
-            Title = "Anti-Cheat",
-            Content = "บล็อก Anti_Cheat_Remote:FireServer() แล้ว",
-            Duration = 5
-        })
-        return wait(9e9)
-    end
-    return oldNamecall(self, ...)
-end)
-
--- ================== เงื่อนไข Map เฉพาะ (PlaceId) ==================
-if game.PlaceId == 6839171747 then
-    task.defer(function()
-        while task.wait() do
-            pcall(function()
-                workspace.CurrentRooms["0"].StarterElevator.DoorHitbox:Destroy()
-            end)
-        end
-    end)
-
-    local success, err = pcall(function()
-        game.Players.LocalPlayer.PlayerGui.MainUI.Initiator.Main_Game.RemoteListener.Disabled = true
-    end)
-    if success then
-        Rayfield:Notify({
-            Title = "Map Bypass",
-            Content = "ปิด RemoteListener และลบ DoorHitbox สำเร็จ",
-            Duration = 6
-        })
-    else
-        Rayfield:Notify({
-            Title = "Map Bypass",
-            Content = "เกิดข้อผิดพลาด: " .. tostring(err),
-            Duration = 6
-        })
-    end
-end
 
 local currentValues = {
     WalkSpeed = 16,
@@ -92,6 +35,7 @@ local Window = Rayfield:CreateWindow({
     Theme = "Default",
     ConfigurationSaving = {Enabled=false}
 })
+
 
 local Tab = Window:CreateTab("Main", 4483362458)
 local Section = Tab:CreateSection("Main")
