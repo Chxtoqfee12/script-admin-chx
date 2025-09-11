@@ -1419,6 +1419,10 @@ local function Minimise()
     Topbar.UIStroke.Color = SelectedTheme.ElementStroke
     task.spawn(closeSearch)
 
+    -- Lock Topbar position
+    Topbar.AnchorPoint = Vector2.new(0,0)
+    Topbar.Position = UDim2.new(0, 0, 0, 0) -- ปรับตามตำแหน่งเดิมของคุณ
+
     -- Fade tab buttons
     for _, tabbtn in ipairs(TabList:GetChildren()) do
         if tabbtn.ClassName == "Frame" and tabbtn.Name ~= "Placeholder" then
@@ -1460,7 +1464,7 @@ local function Minimise()
 
     -- Fade Main and Topbar background
     TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {
-        Size = useMobileSizing and UDim2.new(0, 500, 0, 45) or UDim2.new(0, 500, 0, 75) -- ย่อ height
+        Size = useMobileSizing and UDim2.new(0, 500, 0, 45) or UDim2.new(0, 500, 0, 75)
     }):Play()
 
     TweenService:Create(Topbar, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {
@@ -1492,6 +1496,7 @@ local function Minimise()
     TabList.Visible = false
     Debounce = false
 end
+
 
 
 
