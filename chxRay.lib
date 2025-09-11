@@ -1506,12 +1506,12 @@ local function Minimise()
 	-- Fade Main bg (ไม่เปลี่ยน Size เด็ดขาด)
 	if Main then
 		TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {
-			BackgroundTransparency = 1
+			BackgroundTransparency = 0
 		}):Play()
 	end
-	-- Topbar แค่ fade แต่ไม่ย้าย
+
 	TweenService:Create(Topbar, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {
-		BackgroundTransparency = 1
+		BackgroundTransparency = 0
 	}):Play()
 
 	task.wait(0.3)
