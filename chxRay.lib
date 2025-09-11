@@ -1415,19 +1415,19 @@ end
 local function Minimise()
 	Debounce = true
 
-	-- ลดขนาด Main
-	TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 500, 0, 45)}):Play()
+		-- ลดขนาด Main
+		TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 500, 0, 45)}):Play()
 	
-	-- ซ่อน Elements และ TabList
-	Elements.Visible = false
-	TabList.Visible = false
+		-- ซ่อน Elements และ TabList
+		Elements.Visible = false
+		TabList.Visible = false
 
-	-- ปรับ transparency ของ Topbar และกรอบอื่น ๆ ถ้าต้องการ
-	TweenService:Create(Topbar.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 0.5}):Play()
+		-- ปรับ transparency ของ Topbar และกรอบอื่น ๆ ถ้าต้องการ
+		TweenService:Create(Topbar.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 0.5}):Play()
 
-	task.wait(0.5)
-	Debounce = false
-end
+		task.wait(0.5)
+		Debounce = false
+	end
 
 
 
