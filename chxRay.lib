@@ -1485,9 +1485,9 @@ local function Minimise()
 		TweenService:Create(Topbar.Divider, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
 	end
 
-	-- ✅ Tween Main Size และ Background พร้อมกัน
+	-- ✅ Minimise Main โดยไม่กระทบ Topbar แต่ background จะหาย
 	if Main then
-		local targetSize = UDim2.new(0, 495, 0, 45) -- ขนาด minimized
+		local targetSize = UDim2.new(Main.Size.X.Scale, Main.Size.X.Offset, 0, 45) -- พับเหลือแค่ topbar height
 		TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Size = targetSize, BackgroundTransparency = 1}):Play()
 	end
 
