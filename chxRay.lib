@@ -3620,8 +3620,16 @@ end
 
 
 Topbar.Hide.MouseButton1Click:Connect(function()
-	setVisibility(Hidden, not useMobileSizing)
+	if Debounce then return end
+	if Hidden then
+		Hidden = false
+		Unhide()
+	else
+		Hidden = true
+		Hide(true) -- เรียกใช้ฟังก์ชัน Hide โดยตรง
+	end
 end)
+
 
 hideHotkeyConnection = UserInputService.InputBegan:Connect(function(input, processed)
 	if (input.KeyCode == Enum.KeyCode[getSetting("General", "rayfieldOpen")]) and not processed then
@@ -3631,7 +3639,7 @@ hideHotkeyConnection = UserInputService.InputBegan:Connect(function(input, proce
 			Unhide()
 		else
 			Hidden = true
-			Hide()
+			Hide(true)
 		end
 	end
 end)
