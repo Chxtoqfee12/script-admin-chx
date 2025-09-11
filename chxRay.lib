@@ -1416,110 +1416,91 @@ end
 
 
 local function Minimise()
-	Debounce = true
-	Topbar.ChangeSize.Image = "rbxassetid://"..11036884234
-	Topbar.UIStroke.Color = SelectedTheme.ElementStroke
+    Debounce = true
 
-	task.spawn(closeSearch)
+    -- ตั้งค่า Topbar ให้คงที่ ไม่ขยับ
+    Topbar.AnchorPoint = Vector2.new(0,0)
+    Topbar.Position = UDim2.new(0,0,0,0)
+    Topbar.Size = UDim2.new(0,495,0,45)
+    Topbar.ChangeSize.Image = "rbxassetid://"..11036884234
+    Topbar.UIStroke.Color = SelectedTheme.ElementStroke
 
-	-- Fade tab buttons
-	for _, tabbtn in ipairs(TabList:GetChildren()) do
-		if tabbtn:IsA("Frame") and tabbtn.Name ~= "Placeholder" then
-			TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {
-				BackgroundTransparency = 1
-			}):Play()
-			if tabbtn:FindFirstChild("Image") then
-				TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {
-					ImageTransparency = 1
-				}):Play()
-			end
-			if tabbtn:FindFirstChild("Title") then
-				TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {
-					TextTransparency = 1
-				}):Play()
-			end
-			if tabbtn:FindFirstChild("UIStroke") then
-				TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {
-					Transparency = 1
-				}):Play()
-			end
-		end
-	end
+    -- ลบ constraint ที่อาจทำให้ Topbar ขยับ
+    if Topbar:FindFirstChildOfClass("UIAspectRatioConstraint") then
+        Topbar:FindFirstChildOfClass("UIAspectRatioConstraint"):Destroy()
+    end
+    if Topbar:FindFirstChildOfClass("UIScale") then
+        Topbar:FindFirstChildOfClass("UIScale"):Destroy()
+    end
 
-	-- Fade elements
-	for _, tab in ipairs(Elements:GetChildren()) do
-		if tab:IsA("ScrollingFrame") and tab.Name ~= "Template" and tab.Name ~= "Placeholder" then
-			for _, element in ipairs(tab:GetChildren()) do
-				if element:IsA("Frame") and element.Name ~= "SectionSpacing" and element.Name ~= "Placeholder" then
-					if element:FindFirstChild("Title") then
-						TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {
-							TextTransparency = 1
-						}):Play()
-					end
-					if element:FindFirstChild("UIStroke") then
-						TweenService:Create(element.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {
-							Transparency = 1
-						}):Play()
-					end
-					TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {
-						BackgroundTransparency = 1
-					}):Play()
+    task.spawn(closeSearch)
 
-					-- ซ่อน children
-					for _, child in ipairs(element:GetChildren()) do
-						if child:IsA("Frame") or child:IsA("TextLabel") or child:IsA("TextBox") or child:IsA("ImageButton") or child:IsA("ImageLabel") then
-							child.Visible = false
-						end
-					end
-				end
-			end
-		end
-	end
+    -- ซ่อน TabList ทั้งหมด
+    for _, tabbtn in ipairs(TabList:GetChildren()) do
+        HideElement(tabbtn)
+    end
 
-	-- Fade cosmetics
-	if dragBarCosmetic then
-		TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			BackgroundTransparency = 1
-		}):Play()
-	end
-	if Topbar.UIStroke then
-		TweenService:Create(Topbar.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {
-			Transparency = 1
-		}):Play()
-	end
-	if Main.Shadow and Main.Shadow:FindFirstChild("Image") then
-		TweenService:Create(Main.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {
-			ImageTransparency = 1
-		}):Play()
-	end
-	if Topbar.CornerRepair then
-		TweenService:Create(Topbar.CornerRepair, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {
-			BackgroundTransparency = 1
-		}):Play()
-	end
-	if Topbar.Divider then
-		TweenService:Create(Topbar.Divider, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {
-			BackgroundTransparency = 1
-		}):Play()
-	end
+    -- ซ่อน Elements ทั้งหมด
+    for _, tab in ipairs(Elements:GetChildren()) do
+        if tab.Name ~= "Template" and tab.ClassName == "ScrollingFrame" then
+            for _, element in ipairs(tab:GetChildren()) do
+                if element.ClassName == "Frame" 
+                and element.Name ~= "SectionSpacing" 
+                and element.Name ~= "Placeholder" then
+                    HideElement(element)
+                end
+            end
+        end
+    end
 
-	-- Fade Main bg (ไม่เปลี่ยน Size เด็ดขาด)
-	if Main then
-		TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {
-			BackgroundTransparency = 0
-		}):Play()
-	end
+    -- ปรับ transparency ของ dragBar และ Topbar cosmetic
+    if dragBarCosmetic then
+        TweenService:Create(
+            dragBarCosmetic,
+            TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+            {BackgroundTransparency = 1}
+        ):Play()
+    end
 
-	TweenService:Create(Topbar, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {
-		BackgroundTransparency = 0
-	}):Play()
+    if Topbar.UIStroke then
+        TweenService:Create(
+            Topbar.UIStroke,
+            TweenInfo.new(0.5, Enum.EasingStyle.Exponential),
+            {Transparency = 0}
+        ):Play()
+    end
 
-	task.wait(0.3)
-	Elements.Visible = false
-	TabList.Visible = false
+    if Main.Shadow and Main.Shadow:FindFirstChild("Image") then
+        TweenService:Create(
+            Main.Shadow.Image,
+            TweenInfo.new(0.5, Enum.EasingStyle.Exponential),
+            {ImageTransparency = 1}
+        ):Play()
+    end
 
-	task.wait(0.2)
-	Debounce = false
+    if Topbar.CornerRepair then
+        TweenService:Create(
+            Topbar.CornerRepair,
+            TweenInfo.new(0.5, Enum.EasingStyle.Exponential),
+            {BackgroundTransparency = 1}
+        ):Play()
+    end
+
+    if Topbar.Divider then
+        TweenService:Create(
+            Topbar.Divider,
+            TweenInfo.new(0.5, Enum.EasingStyle.Exponential),
+            {BackgroundTransparency = 1}
+        ):Play()
+    end
+
+    -- รอแล้วซ่อน Elements + TabList
+    task.wait(0.3)
+    Elements.Visible = false
+    TabList.Visible = false
+
+    task.wait(0.2)
+    Debounce = false
 end
 
 
