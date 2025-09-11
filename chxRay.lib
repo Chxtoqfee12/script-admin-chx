@@ -78,7 +78,7 @@ local ConfigurationExtension = ".rfld"
 local settingsTable = {
 	General = {
 		-- if needs be in order just make getSetting(name)
-		rayfieldOpen = {Type = 'bind', Value = 'K', Name = 'Rayfield Keybind'},
+		rayfieldOpen = {Type = 'bind', Value = 'K', Name = 'Keybind'},
 		-- buildwarnings
 		-- rayfieldprompts
 
@@ -1506,7 +1506,7 @@ local function createSettings(window)
 		return
 	end
 
-	local newTab = window:CreateTab('Rayfield Settings', 0, true)
+	local newTab = window:CreateTab('Settings', 0, true)
 
 	if TabList['Rayfield Settings'] then
 		TabList['Rayfield Settings'].LayoutOrder = 1000
