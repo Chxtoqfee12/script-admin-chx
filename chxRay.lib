@@ -1412,6 +1412,25 @@ local function Unhide()
 	Debounce = false
 end
 
+-- ฟังก์ชันซ่อน element แบบ recursive
+local function HideElement(el)
+	if el:IsA("Frame") or el:IsA("ImageLabel") or el:IsA("TextLabel") or el:IsA("TextBox") or el:IsA("ImageButton") then
+		-- Tween background / text transparency
+		if el:IsA("Frame") or el:IsA("ImageLabel") then
+			TweenService:Create(el, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
+		elseif el:IsA("TextLabel") or el:IsA("TextBox") then
+			TweenService:Create(el, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+		elseif el:IsA("ImageButton") then
+			TweenService:Create(el, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
+		end
+		el.Visible = false
+	end
+
+	for _, child in ipairs(el:GetChildren()) do
+		HideElement(child)
+	end
+end
+
 local function Minimise()
 	Debounce = true
 
@@ -1432,58 +1451,23 @@ local function Minimise()
 
 	task.spawn(closeSearch)
 
-	-- ซ่อน tab buttons
+	-- ซ่อน TabList ทั้งหมด
 	for _, tabbtn in ipairs(TabList:GetChildren()) do
-		if tabbtn.ClassName == "Frame" and tabbtn.Name ~= "Placeholder" then
-			TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-			if tabbtn:FindFirstChild("Image") then
-				TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
-			end
-			if tabbtn:FindFirstChild("Title") then
-				TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-			end
-			if tabbtn:FindFirstChild("UIStroke") then
-				TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-			end
-		end
+		HideElement(tabbtn)
 	end
 
-	-- ซ่อน elements
+	-- ซ่อน Elements ทั้งหมด
 	for _, tab in ipairs(Elements:GetChildren()) do
-		if tab.Name ~= "Template" and tab.ClassName == "ScrollingFrame" and tab.Name ~= "Placeholder" then
+		if tab.Name ~= "Template" and tab.ClassName == "ScrollingFrame" then
 			for _, element in ipairs(tab:GetChildren()) do
 				if element.ClassName == "Frame" and element.Name ~= "SectionSpacing" and element.Name ~= "Placeholder" then
-					-- ซ่อน Title / Divider / Element Background
-					if element.Name == "SectionTitle" or element.Name == "SearchTitle-fsefsefesfsefesfesfThanks" then
-						if element:FindFirstChild("Title") then
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						end
-					elseif element.Name == "Divider" then
-						if element:FindFirstChild("Divider") then
-							TweenService:Create(element.Divider, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-						end
-					else
-						TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-						if element:FindFirstChild("UIStroke") then
-							TweenService:Create(element.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-						end
-						if element:FindFirstChild("Title") then
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						end
-					end
-
-					-- ซ่อน children ทั้งหมด
-					for _, child in ipairs(element:GetChildren()) do
-						if child:IsA("Frame") or child:IsA("TextLabel") or child:IsA("TextBox") or child:IsA("ImageButton") or child:IsA("ImageLabel") then
-							child.Visible = false
-						end
-					end
+					HideElement(element)
 				end
 			end
 		end
 	end
 
-	-- ปรับ transparency ของ dragBar และ Topbar cosmetic แต่ไม่ขยับ Topbar
+	-- ปรับ transparency ของ dragBar และ Topbar cosmetic
 	if dragBarCosmetic then
 		TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
 	end
@@ -1502,7 +1486,7 @@ local function Minimise()
 
 	task.wait(0.3)
 
-	-- ซ่อน elements และ TabList
+	-- ซ่อน Elements และ TabList ทั้งหมด
 	Elements.Visible = false
 	TabList.Visible = false
 
