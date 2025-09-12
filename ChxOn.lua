@@ -222,147 +222,122 @@ end)
 
 
 
---// Invisible Script Function (Toggle)
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Lighting = game:GetService("Lighting")
+-- สมมติว่าแท็บ MiscTab ถูกสร้างแล้ว
+local MiscTab = Window:MakeTab({
+    Name = "Misc",
+    Icon = "rbxassetid://6036617171",
+    PremiumOnly = false
+})
 
+-- Invisible variables
 local invisRunning = false
 local IsInvis = false
 local Character, InvisibleCharacter
-local invisFix, invisDied
-local bodyPos -- ✅ เก็บ BodyPosition ของร่างจริงไว้ที่นี่
+local bodyPos
+local invisDied
 
--- ฟังก์ชันเปิดโหมด Invisible
 local function TurnInvisible()
-	if invisRunning or IsInvis then return end
-	invisRunning = true
+    if invisRunning or IsInvis then return end
+    invisRunning = true
 
-	Character = LocalPlayer.Character
-	if not Character then return end
-	Character.Archivable = true
+    local player = game.Players.LocalPlayer
+    Character = player.Character
+    if not Character then invisRunning = false return end
+    Character.Archivable = true
 
-	-- Clone ตัวละคร
-	InvisibleCharacter = Character:Clone()
-	InvisibleCharacter.Parent = workspace
+    InvisibleCharacter = Character:Clone()
+    InvisibleCharacter.Parent = workspace
 
-	-- ปรับความโปร่งใส
-	for _, v in pairs(InvisibleCharacter:GetDescendants()) do
-		if v:IsA("BasePart") then
-			if v.Name == "HumanoidRootPart" then
-				v.Transparency = 1
-			else
-				v.Transparency = 0.5
-			end
-		end
-	end
+    for _, v in pairs(InvisibleCharacter:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Transparency = (v.Name == "HumanoidRootPart") and 1 or 0.5
+        end
+    end
 
-	-- ✅ ย้ายร่างจริงไปกลางอากาศ + ล็อคไม่ให้ตก
-	local root = Character:FindFirstChild("HumanoidRootPart")
-	if root then
-		local pos = root.Position
+    local root = Character:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.CFrame = root.CFrame + Vector3.new(0,600,0)
+        bodyPos = Instance.new("BodyPosition")
+        bodyPos.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bodyPos.P = 3e4
+        bodyPos.Position = root.Position
+        bodyPos.Parent = root
+    end
 
-		-- ย้ายไปสูงขึ้น 200 studs
-		root.CFrame = CFrame.new(pos.X, pos.Y +600, pos.Z)
+    player.Character = InvisibleCharacter
+    IsInvis = true
 
-		-- ใส่ BodyPosition ให้ลอยนิ่ง
-		bodyPos = Instance.new("BodyPosition")
-		bodyPos.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-		bodyPos.P = 3e4
-		bodyPos.Position = root.Position
-		bodyPos.Parent = root
-	end
+    local humanoid = InvisibleCharacter:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        workspace.CurrentCamera.CameraSubject = humanoid
+        invisDied = humanoid.Died:Connect(TurnVisible)
+    end
 
-	-- เปลี่ยนการควบคุมมาใช้ร่างโคลน
-	LocalPlayer.Character = InvisibleCharacter
-	IsInvis = true
+    if InvisibleCharacter:FindFirstChild("Animate") then
+        InvisibleCharacter.Animate.Disabled = true
+        InvisibleCharacter.Animate.Disabled = false
+    end
 
-	-- Fix กล้อง
-	if InvisibleCharacter:FindFirstChildOfClass("Humanoid") then
-		workspace.CurrentCamera.CameraSubject = InvisibleCharacter:FindFirstChildOfClass("Humanoid")
-	end
-
-	LocalPlayer.Character.Animate.Disabled = true
-	LocalPlayer.Character.Animate.Disabled = false
-
-	-- ตรวจจับถ้าตาย
-	invisDied = InvisibleCharacter:FindFirstChildOfClass("Humanoid").Died:Connect(function()
-		TurnVisible()
-	end)
-
-	print("Invisible: ON")
+    invisRunning = false
 end
 
--- ฟังก์ชันปิดโหมด Invisible
 function TurnVisible()
-	if not IsInvis then return end
+    if not IsInvis then return end
 
-	-- ตรวจสอบว่าตัวจริงยังอยู่
-	if not Character or not Character.Parent then
-		warn("Character ไม่อยู่ ไม่สามารถทำ TurnVisible ได้")
-		InvisibleCharacter:Destroy()
-		IsInvis = false
-		invisRunning = false
-		return
-	end
+    local player = game.Players.LocalPlayer
+    local CF
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if root then CF = root.CFrame end
 
-	-- เก็บตำแหน่งของโคลน (ถ้ามี)
-	local CF
-	if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-		CF = LocalPlayer.Character.HumanoidRootPart.CFrame
-	end
+    if InvisibleCharacter then
+        InvisibleCharacter:Destroy()
+        InvisibleCharacter = nil
+    end
 
-	-- ลบร่างโคลน
-	if InvisibleCharacter then
-		InvisibleCharacter:Destroy()
-	end
+    if Character and Character.Parent then
+        player.Character = Character
+        if CF and Character:FindFirstChild("HumanoidRootPart") then
+            Character.HumanoidRootPart.CFrame = CF
+        end
+        local humanoid = Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            workspace.CurrentCamera.CameraSubject = humanoid
+        end
+    end
 
-	-- เอาตัวจริงกลับมา
-	if Character and Character:FindFirstChild("HumanoidRootPart") then
-		Character.Parent = workspace
-		if CF then
-			Character.HumanoidRootPart.CFrame = CF
-		end
-		LocalPlayer.Character = Character
+    if bodyPos then
+        bodyPos:Destroy()
+        bodyPos = nil
+    end
 
-		-- กล้องกลับตามตัวจริง
-		if Character:FindFirstChildOfClass("Humanoid") then
-			workspace.CurrentCamera.CameraSubject = Character:FindFirstChildOfClass("Humanoid")
-		end
-	end
+    if Character and Character:FindFirstChild("Animate") then
+        Character.Animate.Disabled = true
+        Character.Animate.Disabled = false
+    end
 
-	-- ปลดล็อค BodyPosition ถ้ามี
-	if bodyPos then
-		bodyPos:Destroy()
-		bodyPos = nil
-	end
+    if invisDied then
+        invisDied:Disconnect()
+        invisDied = nil
+    end
 
-	Character.Animate.Disabled = true
-	Character.Animate.Disabled = false
-
-	if invisFix then invisFix:Disconnect() end
-	if invisDied then invisDied:Disconnect() end
-
-	IsInvis = false
-	invisRunning = false
-
-	print("Invisible: OFF")
+    IsInvis = false
 end
 
--- ================= Invisible Toggle =================
+-- ================= Invisible Toggle (Main Tab) =================
 MainTab:AddToggle({
     Name = "Invisible",
     Default = false,
-    Save = false,
     Flag = "InvisibleToggle",
-    Callback = function(state)
-        if state then
-            TurnInvisible()
-            showNotification("Invisible", "You are now invisible", 3)
+    Callback = function(value)
+        local success, err
+        if value then
+            success, err = pcall(TurnInvisible)
+            if not success then warn("TurnInvisible error: "..tostring(err)) end
+            if success then showNotification("Invisible", "Invisible: ON", 4) end
         else
-            TurnVisible()
-            showNotification("Invisible", "You are now visible", 3)
+            success, err = pcall(TurnVisible)
+            if not success then warn("TurnVisible error: "..tostring(err)) end
+            if success then showNotification("Invisible", "Invisible: OFF", 4) end
         end
     end
 })
