@@ -575,191 +575,166 @@ FollowTab:AddToggle({
 
 
 
---// Services
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+-- ================= ESP =================
+local espEnabled=false
+local showName=true
+local showDistance=true
+local showBox=true
+local textSize=14
+local ESPs={}
+local screenGui=player:WaitForChild("PlayerGui"):FindFirstChild("ESP_ScreenGui")
+if not screenGui then
+    screenGui=Instance.new("ScreenGui")
+    screenGui.Name="ESP_ScreenGui"
+    screenGui.IgnoreGuiInset=true
+    screenGui.ResetOnSpawn=false
+    screenGui.Parent=player:WaitForChild("PlayerGui")
+end
+local Camera=workspace.CurrentCamera
 
-
---// Variables
-local espEnabled = false
-local showName = true
-local showDistance = true
-local showBox = true
-local textSize = 14
-local ESPs = {}
-
---// Create ESP
 local function createESP(plr)
-    if plr == LocalPlayer then return end
-    local char = plr.Character or plr.CharacterAdded:Wait()
-    local root = char:WaitForChild("HumanoidRootPart")
-
-    -- BillboardGui
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESP_"..plr.Name
-    billboard.Size = UDim2.new(0,200,0,50)
-    billboard.Adornee = root
-    billboard.AlwaysOnTop = true
-    billboard.StudsOffset = Vector3.new(0,3,0)
-    billboard.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    billboard.Enabled = false
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1,0,1,0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255,0,0)
-    label.TextStrokeTransparency = 0
-    label.Font = Enum.Font.SourceSansBold
-    label.TextSize = textSize
-    label.Parent = billboard
-
-    -- Box
-    local box = Instance.new("BoxHandleAdornment")
-    box.Adornee = root
-    box.AlwaysOnTop = true
-    box.Size = Vector3.new(2,5,1)
-    box.Color3 = Color3.fromRGB(255,0,0)
-    box.Transparency = 0.5
-    box.Visible = false
-    box.Parent = workspace
-
-    ESPs[plr] = {Billboard = billboard, Label = label, Box = box}
+    if plr==player or ESPs[plr] then return end
+    local box=Instance.new("Frame")
+    box.Name="ESP_Box_"..plr.Name
+    box.BackgroundTransparency=1
+    box.AnchorPoint=Vector2.new(0,0)
+    box.Visible=false
+    box.ZIndex=2
+    box.Parent=screenGui
+    local stroke=Instance.new("UIStroke")
+    stroke.Thickness=2
+    stroke.Color=Color3.fromRGB(0,255,0)
+    stroke.Parent=box
+    local label=Instance.new("TextLabel")
+    label.Name="ESP_Label_"..plr.Name
+    label.Size=UDim2.new(0,200,0,20)
+    label.AnchorPoint=Vector2.new(0.5,1)
+    label.BackgroundTransparency=1
+    label.TextColor3=Color3.fromRGB(255,255,255)
+    label.TextStrokeTransparency=0
+    label.Font=Enum.Font.SourceSansBold
+    label.TextSize=textSize
+    label.Visible=false
+    label.ZIndex=3
+    label.Parent=screenGui
+    ESPs[plr]={Box=box,Stroke=stroke,Label=label}
 end
 
---// Remove ESP
 local function removeESP(plr)
     if ESPs[plr] then
-        if ESPs[plr].Billboard then ESPs[plr].Billboard:Destroy() end
         if ESPs[plr].Box then ESPs[plr].Box:Destroy() end
-        ESPs[plr] = nil
+        if ESPs[plr].Label then ESPs[plr].Label:Destroy() end
+        ESPs[plr]=nil
     end
 end
 
---// Update ESP
 RunService.RenderStepped:Connect(function()
-    if espEnabled then
-        for plr, data in pairs(ESPs) do
-            local char = plr.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if root then
-                local billboard = data.Billboard
-                local label = data.Label
-                local box = data.Box
-
-                billboard.Enabled = (showName or showDistance)
-                box.Visible = showBox
-
-                local text = ""
-                if showName then text = text..plr.Name.." " end
-                if showDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
-                    text = text.."("..math.floor(dist).."m)"
+    if not espEnabled then
+        for _,data in pairs(ESPs) do data.Box.Visible=false data.Label.Visible=false end
+        return
+    end
+    for plr,data in pairs(ESPs) do
+        local char=plr.Character
+        local hrp=char and char:FindFirstChild("HumanoidRootPart")
+        local head=char and char:FindFirstChild("Head")
+        local humanoid=char and char:FindFirstChildOfClass("Humanoid")
+        if hrp and head and humanoid and humanoid.Health>0 then
+            local headPos,vis1=Camera:WorldToViewportPoint(head.Position+Vector3.new(0,0.5,0))
+            local legPos,vis2=Camera:WorldToViewportPoint(hrp.Position-Vector3.new(0,3,0))
+            if vis1 and vis2 then
+                local height=math.abs(legPos.Y-headPos.Y)
+                local width=height*0.45
+                local x=headPos.X-width/2
+                local y=headPos.Y
+                data.Box.Size=UDim2.new(0,width,0,height)
+                data.Box.Position=UDim2.new(0,x,0,y)
+                data.Box.Visible=showBox
+                local text=""
+                if showName then text=text..plr.Name end
+                if showDistance and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist=(player.Character.HumanoidRootPart.Position-hrp.Position).Magnitude
+                    if #text>0 then text=text.." " end
+                    text=text..math.floor(dist).." Studs"
                 end
-                label.Text = text
-                label.TextSize = textSize
-            else
-                removeESP(plr)
-            end
-        end
+                data.Label.Text=text
+                data.Label.TextSize=textSize
+                data.Label.Position=UDim2.new(0,headPos.X,0,headPos.Y-10)
+                data.Label.Visible=(text~="")
+            else data.Box.Visible=false data.Label.Visible=false end
+        else data.Box.Visible=false data.Label.Visible=false end
     end
 end)
 
---// Player events
-Players.PlayerAdded:Connect(function(plr)
-    if espEnabled then createESP(plr) end
-end)
+Players.PlayerAdded:Connect(createESP)
 Players.PlayerRemoving:Connect(removeESP)
+for _,plr in pairs(Players:GetPlayers()) do if plr~=player then createESP(plr) end end
 
---// Orion UI Controls
-ESPTab:AddToggle({
-    Name = "Enable ESP",
-    Default = false,
-    Callback = function(val)
-        espEnabled = val
-        if val then
-            for _, plr in pairs(Players:GetPlayers()) do
-                if not ESPs[plr] and plr ~= LocalPlayer then
-                    createESP(plr)
+ESPTab:AddToggle({Name="Enable ESP", Default=false, Callback=function(val) espEnabled=val end})
+ESPTab:AddToggle({Name="Show Name", Default=true, Callback=function(val) showName=val end})
+ESPTab:AddToggle({Name="Show Distance", Default=true, Callback=function(val) showDistance=val end})
+ESPTab:AddToggle({Name="Show Box", Default=true, Callback=function(val) showBox=val end})
+ESPTab:AddSlider({Name="Text Size", Min=8, Max=40, Default=textSize, Increment=1, Suffix="px", Callback=function(val) textSize=val end})
+
+
+
+
+
+
+
+
+
+-- ========== Misc Tab ==========
+local OriginalLighting={
+    Ambient=Lighting.Ambient,
+    OutdoorAmbient=Lighting.OutdoorAmbient,
+    Brightness=Lighting.Brightness,
+    FogStart=Lighting.FogStart,
+    FogEnd=Lighting.FogEnd,
+    GlobalShadows=Lighting.GlobalShadows
+}
+
+local OriginalWorkspace={}
+for _,obj in pairs(Workspace:GetDescendants()) do
+    if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+        local texID
+        pcall(function() texID=obj.TextureID end)
+        OriginalWorkspace[obj]={Material=obj.Material,Reflectance=obj.Reflectance,TextureID=texID}
+    elseif obj:IsA("Decal") or obj:IsA("Texture") then
+        OriginalWorkspace[obj]={Transparency=obj.Transparency}
+    elseif obj:IsA("ParticleEmitter") then
+        OriginalWorkspace[obj]={Enabled=obj.Enabled}
+    end
+end
+
+MiscTab:AddToggle({Name="Boost FPS", Default=false, Callback=function(state)
+    for _,v in pairs(Workspace:GetDescendants()) do
+        pcall(function()
+            if state then
+                if v:IsA("BasePart") then v.Material=Enum.Material.Plastic v.Reflectance=0 v.TextureID="" end
+                if v:IsA("MeshPart") then v.Material=Enum.Material.Plastic v.TextureID="" end
+                if v:IsA("Decal") or v:IsA("Texture") then v.Transparency=1 end
+                if v:IsA("ParticleEmitter") then v.Enabled=false end
+            else
+                local data=OriginalWorkspace[v]
+                if data then
+                    if v:IsA("BasePart") or v:IsA("MeshPart") then v.Material=data.Material v.Reflectance=data.Reflectance if data.TextureID then v.TextureID=data.TextureID end end
+                    if v:IsA("Decal") or v:IsA("Texture") then v.Transparency=data.Transparency end
+                    if v:IsA("ParticleEmitter") then v.Enabled=data.Enabled end
                 end
             end
-            OrionLib:MakeNotification({
-                Name = "ESP",
-                Content = "ESP enabled",
-                Image = "rbxassetid://4483345998",
-                Time = 2
-            })
-        else
-            for p,_ in pairs(ESPs) do removeESP(p) end
-            OrionLib:MakeNotification({
-                Name = "ESP",
-                Content = "ESP disabled",
-                Image = "rbxassetid://4483345998",
-                Time = 2
-            })
-        end
+        end)
     end
-})
+    Lighting.GlobalShadows=(state and false or OriginalLighting.GlobalShadows)
+end})
 
-ESPTab:AddToggle({
-    Name = "Show Name",
-    Default = true,
-    Callback = function(val) showName = val end
-})
+MiscTab:AddToggle({Name="Remove Fog", Default=false, Callback=function(state)
+    if state then Lighting.FogStart=0 Lighting.FogEnd=100000 else Lighting.FogStart=OriginalLighting.FogStart Lighting.FogEnd=OriginalLighting.FogEnd end
+end})
 
-ESPTab:AddToggle({
-    Name = "Show Distance",
-    Default = true,
-    Callback = function(val) showDistance = val end
-})
+MiscTab:AddToggle({Name="Brighten Map", Default=false, Callback=function(state)
+    if state then Lighting.Ambient=Color3.fromRGB(255,255,255) Lighting.OutdoorAmbient=Color3.fromRGB(255,255,255) Lighting.Brightness=2
+    else Lighting.Ambient=OriginalLighting.Ambient Lighting.OutdoorAmbient=OriginalLighting.OutdoorAmbient Lighting.Brightness=OriginalLighting.Brightness end
+end})
 
-ESPTab:AddToggle({
-    Name = "Show Box",
-    Default = true,
-    Callback = function(val) showBox = val end
-})
-
-ESPTab:AddSlider({
-    Name = "Text Size",
-    Min = 8,
-    Max = 40,
-    Default = textSize,
-    Color = Color3.fromRGB(255,255,255),
-    Increment = 1,
-    ValueName = "px",
-    Callback = function(val) textSize = val end
-})
-
-
-
-
-
-
-
-
--- ========== Notification on ready ==========
-showNotification("Chx Script", "Fly / Speed / Jump / Noclip / Invisible / ESP ", 5)
-
--- ========== Safety: cleanup on script unload ==========
-local function cleanup()
-    -- disconnect connections
-    if noclipConnection then noclipConnection:Disconnect() noclipConnection = nil end
-    if followConnection then followConnection:Disconnect() followConnection = nil end
-    -- destroy ESP guis
-    for p,_ in pairs(ESPs) do removeESP(p) end
-end
-
--- try to cleanup when script disabled (if exploit supports)
-if syn and syn.protect_gui then
-    -- do nothing special, but ensure cleanup on close if possible
-end
-
--- Ensure boosts applied if humanoid changes
--- Reapply on humanoid child added
-player.CharacterAdded:Connect(function(char)
-    setupCharacter(char)
-    applyBoosts()
-    if currentValues.Noclip then setNoclip(true) end
-end)
-
--- End of script
+-- ========== Notification ==========
+showNotification("Chx Script", "Fly / Speed / Jump / Noclip / Invisible / ESP", 5)
