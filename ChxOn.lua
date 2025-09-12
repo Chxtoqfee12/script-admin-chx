@@ -84,7 +84,7 @@ local ESPTab = Window:MakeTab({
     Icon = "rbxassetid://6034289920", -- eye-like icon
     PremiumOnly = false
 })
-ESPTab:AddSection({Name = "ESP Settings"})
+ESPTab:AddSection({Name = "ESP"})
 
 -- Misc Tab
 local MiscTab = Window:MakeTab({
@@ -217,11 +217,6 @@ UIS.JumpRequest:Connect(function()
         humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end)
-
-
-
-
-
 
 
 
@@ -580,11 +575,13 @@ FollowTab:AddToggle({
 
 
 
+--// Services
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 
-
-
--- ========== ESP implementation ==========
+--// Variables
 local espEnabled = false
 local showName = true
 local showDistance = true
@@ -592,26 +589,26 @@ local showBox = true
 local textSize = 14
 local ESPs = {}
 
+--// Create ESP
 local function createESP(plr)
-    if plr == player then return end
+    if plr == LocalPlayer then return end
     local char = plr.Character or plr.CharacterAdded:Wait()
-    local root = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart")
+    local root = char:WaitForChild("HumanoidRootPart")
+
     -- BillboardGui
-    local guiParent = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui")
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ESP_"..plr.Name
     billboard.Size = UDim2.new(0,200,0,50)
     billboard.Adornee = root
     billboard.AlwaysOnTop = true
     billboard.StudsOffset = Vector3.new(0,3,0)
-    billboard.Parent = guiParent
+    billboard.Parent = LocalPlayer:WaitForChild("PlayerGui")
     billboard.Enabled = false
 
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1,0,1,0)
     label.BackgroundTransparency = 1
     label.TextColor3 = Color3.fromRGB(255,0,0)
-    label.TextScaled = false
     label.TextStrokeTransparency = 0
     label.Font = Enum.Font.SourceSansBold
     label.TextSize = textSize
@@ -630,6 +627,7 @@ local function createESP(plr)
     ESPs[plr] = {Billboard = billboard, Label = label, Box = box}
 end
 
+--// Remove ESP
 local function removeESP(plr)
     if ESPs[plr] then
         if ESPs[plr].Billboard then ESPs[plr].Billboard:Destroy() end
@@ -638,11 +636,7 @@ local function removeESP(plr)
     end
 end
 
--- On player join/leave
-Players.PlayerAdded:Connect(function(plr) if espEnabled then createESP(plr) end end)
-Players.PlayerRemoving:Connect(function(plr) removeESP(plr) end)
-
--- ESP update loop
+--// Update ESP
 RunService.RenderStepped:Connect(function()
     if espEnabled then
         for plr, data in pairs(ESPs) do
@@ -652,12 +646,14 @@ RunService.RenderStepped:Connect(function()
                 local billboard = data.Billboard
                 local label = data.Label
                 local box = data.Box
-                billboard.Enabled = showName or showDistance
+
+                billboard.Enabled = (showName or showDistance)
                 box.Visible = showBox
+
                 local text = ""
                 if showName then text = text..plr.Name.." " end
-                if showDistance and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (player.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                if showDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
                     text = text.."("..math.floor(dist).."m)"
                 end
                 label.Text = text
@@ -669,55 +665,77 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+--// Player events
+Players.PlayerAdded:Connect(function(plr)
+    if espEnabled then createESP(plr) end
+end)
+Players.PlayerRemoving:Connect(removeESP)
+
+--// Orion UI Controls
 ESPTab:AddToggle({
     Name = "Enable ESP",
     Default = false,
-    Save = false,
-    Flag = "EnableESP",
     Callback = function(val)
         espEnabled = val
         if val then
             for _, plr in pairs(Players:GetPlayers()) do
-                if not ESPs[plr] and plr ~= player then
+                if not ESPs[plr] and plr ~= LocalPlayer then
                     createESP(plr)
                 end
             end
-            showNotification("ESP", "ESP enabled", 2)
+            OrionLib:MakeNotification({
+                Name = "ESP",
+                Content = "ESP enabled",
+                Image = "rbxassetid://4483345998",
+                Time = 2
+            })
         else
             for p,_ in pairs(ESPs) do removeESP(p) end
-            showNotification("ESP", "ESP disabled", 2)
+            OrionLib:MakeNotification({
+                Name = "ESP",
+                Content = "ESP disabled",
+                Image = "rbxassetid://4483345998",
+                Time = 2
+            })
         end
     end
 })
 
-ESPTab:AddToggle({Name = "Show Name", Default = true, Save = false, Callback = function(val) showName = val end})
-ESPTab:AddToggle({Name = "Show Distance", Default = true, Save = false, Callback = function(val) showDistance = val end})
-ESPTab:AddToggle({Name = "Show Box", Default = true, Save = false, Callback = function(val) showBox = val end})
+ESPTab:AddToggle({
+    Name = "Show Name",
+    Default = true,
+    Callback = function(val) showName = val end
+})
+
+ESPTab:AddToggle({
+    Name = "Show Distance",
+    Default = true,
+    Callback = function(val) showDistance = val end
+})
+
+ESPTab:AddToggle({
+    Name = "Show Box",
+    Default = true,
+    Callback = function(val) showBox = val end
+})
 
 ESPTab:AddSlider({
     Name = "Text Size",
     Min = 8,
     Max = 40,
     Default = textSize,
+    Color = Color3.fromRGB(255,255,255),
     Increment = 1,
-    Suffix = "px",
-    Save = false,
+    ValueName = "px",
     Callback = function(val) textSize = val end
 })
 
--- ========== Misc tab (placeholder for future features) ==========
-MiscTab:AddButton({
-    Name = "Clear ESP & Reset",
-    Callback = function()
-        espEnabled = false
-        for p,_ in pairs(ESPs) do removeESP(p) end
-        setNoclip(false)
-        currentValues.WalkSpeed = 16
-        currentValues.JumpPower = 50
-        applyBoosts()
-        showNotification("Reset All", "ESP cleared and values reset", 3)
-    end
-})
+
+
+
+
+
+
 
 -- ========== Notification on ready ==========
 showNotification("Chx Script", "Fly / Speed / Jump / Noclip / Invisible / ESP ", 5)
