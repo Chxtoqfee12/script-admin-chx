@@ -1,3 +1,14 @@
+-- =================== Map Check ===================
+local bannedMaps = {
+    4954512662,
+}
+
+for _, id in ipairs(bannedMaps) do
+    if game.PlaceId == id then
+        game.Players.LocalPlayer:Kick("แมพนี้ไม่สามารถเล่นได้ เนื่องจากอาจโดนแบนจากระบบ")
+        return
+    end
+end
 
 -- ========== Load Orion ==========
 local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/ChxOn.lib'))()
@@ -370,25 +381,6 @@ local function isR6Character(plr)
     return char:FindFirstChild("Torso") ~= nil
 end
 
--- ฟังก์ชัน Noclip
-local function setNoclip(state)
-    if state then
-        noclipConnection = RunService.Stepped:Connect(function()
-            if LocalPlayer.Character then
-                for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end)
-    else
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-    end
-end
 
 -- ฟังก์ชันหยุดทุกท่า
 local function stopAction()
@@ -545,7 +537,6 @@ FollowTab:AddToggle({
     Default = false,
     Callback = function(Value)
         if Value then
-            setNoclip(true)
             startFollowing()
         else
             stopAction()
