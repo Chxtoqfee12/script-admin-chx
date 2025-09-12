@@ -747,7 +747,6 @@ local Icons = useStudio and require(script.Parent.icons) or loadWithTimeout('htt
 
 local CFileName = nil
 local CEnabled = false
-local Minimised = false
 local Hidden = false
 local Debounce = false
 local searchOpen = false
