@@ -385,19 +385,21 @@ MainTab:AddToggle({
 
 
 
-
--- Services 
-local Players = game:GetService("Players") 
-local TweenService = game:GetService("TweenService") 
-local RunService = game:GetService("RunService") 
+-- ================= Follow Player Tab + Animation + Toggle =================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
--------------------------------------------------------
+
 -- ตัวแปรหลัก
--------------------------------------------------------
 local targetPlayer = nil
-local activeAnimation
-local running = false
-local attachmentLoop
+local followEnabled = false
+local followSpeed = 0.1
+local activeAnimation = nil
+local runningAnim = false
+local attachmentLoop = nil
+local selectedAnim = "None"
+local animEnabled = false
 
 -- Animation IDs
 local animBangedR15 = "10714360343"
@@ -405,20 +407,16 @@ local animBangedR6  = "189854234"
 local animSuckR15   = "5918726674"
 local animSuckR6    = "178130996"
 
--------------------------------------------------------
--- ฟังก์ชันเช็ค Rig
--------------------------------------------------------
+-- เช็ค R6 / R15
 local function isR6Character(plr)
     local char = plr and plr.Character
     if not char then return false end
     return char:FindFirstChild("Torso") ~= nil
 end
 
--------------------------------------------------------
--- ฟังก์ชันหยุดทุกท่า
--------------------------------------------------------
+-- Stop ทุก action
 local function stopAction()
-    running = false
+    runningAnim = false
     if attachmentLoop then
         attachmentLoop:Disconnect()
         attachmentLoop = nil
@@ -429,14 +427,12 @@ local function stopAction()
     end
 end
 
--------------------------------------------------------
--- ฟังก์ชันแต่ละท่า
--------------------------------------------------------
-
+-- Banged
 local function startBanged()
     if not targetPlayer or not targetPlayer.Character then return end
     stopAction()
-    running = true
+    runningAnim = true
+
     local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
         local anim = Instance.new("Animation")
@@ -444,43 +440,45 @@ local function startBanged()
         activeAnimation = humanoid:LoadAnimation(anim)
         activeAnimation:Play()
     end
-    coroutine.wrap(function()
-        while running do
-            local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character.PrimaryPart
-            if targetHRP and myHRP then
-                local fwd = targetHRP.CFrame * CFrame.new(0,0,-1.5)
-                local bwd = targetHRP.CFrame * CFrame.new(0,0,-1.1)
-                if isR6Character(LocalPlayer) then
-                    fwd = targetHRP.CFrame * CFrame.new(0,0,-2.5)
-                    bwd = targetHRP.CFrame * CFrame.new(0,0,-1.3)
-                end
-                TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=fwd}):Play()
-                task.wait(0.15)
-                TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=bwd}):Play()
-                task.wait(0.15)
-            else
-                stopAction()
-                break
+
+    attachmentLoop = RunService.Heartbeat:Connect(function()
+        if runningAnim and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+            local targetHRP = targetPlayer.Character.HumanoidRootPart
+            local myHRP = LocalPlayer.Character.PrimaryPart
+            local fwd = targetHRP.CFrame * CFrame.new(0,0,-1.5)
+            local bwd = targetHRP.CFrame * CFrame.new(0,0,-1.1)
+            if isR6Character(LocalPlayer) then
+                fwd = targetHRP.CFrame * CFrame.new(0,0,-2.5)
+                bwd = targetHRP.CFrame * CFrame.new(0,0,-1.3)
             end
+            TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=fwd}):Play()
+            task.wait(0.15)
+            TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=bwd}):Play()
+            task.wait(0.15)
+        else
+            stopAction()
         end
-    end)()
+    end)
 end
 
+-- Suck
 local function startSuck()
     if not targetPlayer or not targetPlayer.Character then return end
     stopAction()
-    running = true
+    runningAnim = true
+
     local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     local targetTorso = targetPlayer.Character:FindFirstChild("LowerTorso") or targetPlayer.Character:FindFirstChild("UpperTorso")
-    if humanoid then
+
+    if humanoid and targetTorso then
         local anim = Instance.new("Animation")
         anim.AnimationId = "rbxassetid://"..(isR6Character(LocalPlayer) and animSuckR6 or animSuckR15)
         activeAnimation = humanoid:LoadAnimation(anim)
         activeAnimation:Play()
     end
+
     attachmentLoop = RunService.Heartbeat:Connect(function()
-        if running and targetTorso and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+        if runningAnim and targetTorso and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
             local hrp = LocalPlayer.Character.PrimaryPart
             hrp.CFrame = targetTorso.CFrame * CFrame.new(0,-2.3,-1) * CFrame.Angles(0,math.pi,0)
         else
@@ -489,104 +487,111 @@ local function startSuck()
     end)
 end
 
--------------------------------------------------------
--- Dropdown เลือกผู้เล่น
--------------------------------------------------------
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-local targetPlayer = nil
-local followEnabled = false -- Toggle เปิด/ปิดติดตาม
-local followSpeed = 0.1    -- ความเร็วการตาม (0-1, ยิ่งสูงยิ่งเร็ว)
-
--------------------------------------------------------
--- Dropdown เลือกผู้เล่น
--------------------------------------------------------
-local function GetPlayerList()
-    local list = {}
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then table.insert(list, plr.Name) end
+-- ฟังก์ชันเล่น Animation ตาม selectedAnim
+local function playSelectedAnim()
+    stopAction()
+    if not animEnabled then return end
+    if selectedAnim == "Banged" then
+        startBanged()
+    elseif selectedAnim == "Suck" then
+        startSuck()
     end
-    return list
 end
 
-local playerDropdown = FollowTab:AddDropdown({
-    Name = "Select Player",
-    Default = "",
-    Options = GetPlayerList(),
-    Save = false,
-    Flag = "TargetPlayer",
-    Callback = function(value)
-        if value and value ~= "" then
-            targetPlayer = Players:FindFirstChild(value)
-        else
-            targetPlayer = nil
-        end
-    end
-})
-
-FollowTab:AddButton({
-    Name = "Refresh Player List",
-    Callback = function()
-        playerDropdown:Refresh(GetPlayerList())
-    end
-})
-
--------------------------------------------------------
--- Toggle แยกท่า
--------------------------------------------------------
-
--- เก็บ Toggle objects ไว้
-local bangedToggleObj, suckToggleObj
-
-FollowTab:AddToggle({
-    Name = "🎉 Banged",
-    Default = false,
-    Save = false,
-    Flag = "BangedToggle",
-    Callback = function(val)
-        if val then startBanged() else stopAction() end
-    end
-})
-
-FollowTab:AddToggle({
-    Name = "💥 Suck",
-    Default = false,
-    Save = false,
-    Flag = "SuckToggle",
-    Callback = function(val)
-        if val then startSuck() else stopAction() end
-    end
-})
-
--------------------------------------------------------
--- Toggle Follow Player
--------------------------------------------------------
-FollowTab:AddToggle({
-    Name = "Follow Player",
-    Default = false,
-    Save = false,
-    Flag = "FollowToggle",
-    Callback = function(state)
-        followEnabled = state
-    end
-})
-
--------------------------------------------------------
--- ฟังก์ชันติดตามผู้เล่นแบบ Smooth
--------------------------------------------------------
+-- ฟังก์ชัน Follow Player
 RunService.RenderStepped:Connect(function()
     if followEnabled and targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local targetHRP = targetPlayer.Character.HumanoidRootPart
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             local myHRP = LocalPlayer.Character.HumanoidRootPart
-            -- Lerp ตำแหน่งเพื่อ smooth movement
-            local newCFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0, 0, 1), followSpeed)
-            myHRP.CFrame = newCFrame
+            myHRP.CFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0, 0, 1), followSpeed)
         end
     end
 end)
+
+-- สร้าง dropdown ผู้เล่น
+local function getPlayerList()
+    local list = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            table.insert(list, plr.Name)
+        end
+    end
+    return list
+end
+
+FollowTab:AddDropdown({
+    Name = "Select Player",
+    Default = "None",
+    Options = getPlayerList(),
+    Callback = function(selected)
+        targetPlayer = Players:FindFirstChild(selected)
+    end
+})
+
+FollowTab:AddToggle({
+    Name = "Enable Follow",
+    Default = false,
+    Callback = function(state)
+        followEnabled = state
+        if not followEnabled then stopAction() end
+    end
+})
+
+FollowTab:AddSlider({
+    Name = "Follow Speed",
+    Min = 0.01,
+    Max = 1,
+    Default = 0.1,
+    Increment = 0.01,
+    Callback = function(val) followSpeed = val end
+})
+
+-- Animation Dropdown
+FollowTab:AddDropdown({
+    Name = "Select Animation",
+    Default = "None",
+    Options = {"None","Banged","Suck"},
+    Callback = function(selected)
+        selectedAnim = selected
+        playSelectedAnim()
+    end
+})
+
+-- Animation Toggle (เปิด/ปิด)
+FollowTab:AddToggle({
+    Name = "Enable Animation",
+    Default = false,
+    Callback = function(state)
+        animEnabled = state
+        if animEnabled then
+            playSelectedAnim()
+        else
+            stopAction()
+        end
+    end
+})
+
+-- อัปเดต dropdown ผู้เล่นอัตโนมัติ
+Players.PlayerAdded:Connect(function(plr)
+    FollowTab:RefreshDropdown("Select Player", getPlayerList())
+end)
+Players.PlayerRemoving:Connect(function(plr)
+    FollowTab:RefreshDropdown("Select Player", getPlayerList())
+end)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 -- ========== ESP implementation ==========
