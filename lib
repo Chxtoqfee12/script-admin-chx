@@ -1,7 +1,7 @@
 --[[
 
-	Chx Script
-	by ChristopFxx
+	Rayfield Interface Suite
+	by Sirius
 
 	shlex  | Designing + Programming
 	iRay   | Programming
@@ -78,7 +78,7 @@ local ConfigurationExtension = ".rfld"
 local settingsTable = {
 	General = {
 		-- if needs be in order just make getSetting(name)
-		rayfieldOpen = {Type = 'bind', Value = 'K', Name = 'Keybind'},
+		rayfieldOpen = {Type = 'bind', Value = 'K', Name = 'Rayfield Keybind'},
 		-- buildwarnings
 		-- rayfieldprompts
 
@@ -654,7 +654,7 @@ local CoreGui = getService("CoreGui")
 
 -- Interface Management
 
-local Rayfield = useStudio and script.Parent:FindFirstChild('Script Chx') or game:GetObjects("rbxassetid://10804731440")[1]
+local Rayfield = useStudio and script.Parent:FindFirstChild('Rayfield') or game:GetObjects("rbxassetid://10804731440")[1]
 local buildAttempts = 0
 local correctBuild = false
 local warned
@@ -1190,7 +1190,7 @@ local function Hide(notify: boolean?)
 		if useMobilePrompt then 
 			RayfieldLibrary:Notify({Title = "Interface Hidden", Content = "The interface has been hidden, you can unhide the interface by tapping 'Show'.", Duration = 7, Image = 4400697855})
 		else
-			RayfieldLibrary:Notify({Title = "Interface Hidden", Content = `The interface has been hidden, you can unhide the interface by tapping {getSetting("General", "ChxOpen")}.`, Duration = 7, Image = 4400697855})
+			RayfieldLibrary:Notify({Title = "Interface Hidden", Content = `The interface has been hidden, you can unhide the interface by tapping {getSetting("General", "rayfieldOpen")}.`, Duration = 7, Image = 4400697855})
 		end
 	end
 
@@ -1412,60 +1412,39 @@ local function Unhide()
 	Debounce = false
 end
 
-local isMinimised = false -- state ของ UI
-
 local function Minimise()
 	Debounce = true
+	Topbar.ChangeSize.Image = "rbxassetid://"..11036884234
 
-	if not isMinimised then
-		-- ✅ เปลี่ยน icon
-		Topbar.ChangeSize.Image = "rbxassetid://"..11036884234
-		Topbar.UIStroke.Color = SelectedTheme.ElementStroke
+	Topbar.UIStroke.Color = SelectedTheme.ElementStroke
 
-		task.spawn(closeSearch)
+	task.spawn(closeSearch)
 
-		-- Fade tab buttons
-		for _, tabbtn in ipairs(TabList:GetChildren()) do
-			if tabbtn.ClassName == "Frame" and tabbtn.Name ~= "Placeholder" then
-				TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-				if tabbtn:FindFirstChild("Image") then
-					TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
-				end
-				if tabbtn:FindFirstChild("Title") then
-					TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-				end
-				if tabbtn:FindFirstChild("UIStroke") then
-					TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-				end
-			end
+	for _, tabbtn in ipairs(TabList:GetChildren()) do
+		if tabbtn.ClassName == "Frame" and tabbtn.Name ~= "Placeholder" then
+			TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
+			TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
+			TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+			TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
 		end
+	end
 
-		-- Fade elements
-		for _, tab in ipairs(Elements:GetChildren()) do
-			if tab.Name ~= "Template" and tab.ClassName == "ScrollingFrame" and tab.Name ~= "Placeholder" then
-				for _, element in ipairs(tab:GetChildren()) do
-					if element.ClassName == "Frame" and element.Name ~= "SectionSpacing" and element.Name ~= "Placeholder" then
+	for _, tab in ipairs(Elements:GetChildren()) do
+		if tab.Name ~= "Template" and tab.ClassName == "ScrollingFrame" and tab.Name ~= "Placeholder" then
+			for _, element in ipairs(tab:GetChildren()) do
+				if element.ClassName == "Frame" then
+					if element.Name ~= "SectionSpacing" and element.Name ~= "Placeholder" then
 						if element.Name == "SectionTitle" or element.Name == 'SearchTitle-fsefsefesfsefesfesfThanks' then
-							if element:FindFirstChild("Title") then
-								TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-							end
+							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
 						elseif element.Name == 'Divider' then
-							if element:FindFirstChild("Divider") then
-								TweenService:Create(element.Divider, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-							end
+							TweenService:Create(element.Divider, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
 						else
 							TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-							if element:FindFirstChild("UIStroke") then
-								TweenService:Create(element.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-							end
-							if element:FindFirstChild("Title") then
-								TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-							end
+							TweenService:Create(element.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
 						end
-
-						-- Hide children after fade
 						for _, child in ipairs(element:GetChildren()) do
-							if child:IsA("Frame") or child:IsA("TextLabel") or child:IsA("TextBox") or child:IsA("ImageButton") or child:IsA("ImageLabel") then
+							if child.ClassName == "Frame" or child.ClassName == "TextLabel" or child.ClassName == "TextBox" or child.ClassName == "ImageButton" or child.ClassName == "ImageLabel" then
 								child.Visible = false
 							end
 						end
@@ -1473,71 +1452,24 @@ local function Minimise()
 				end
 			end
 		end
-
-		-- Fade cosmetics
-		if dragBarCosmetic then
-			TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
-		end
-		if Topbar.UIStroke then
-			TweenService:Create(Topbar.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-		end
-		if Main.Shadow and Main.Shadow:FindFirstChild("Image") then
-			TweenService:Create(Main.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
-		end
-		if Topbar.CornerRepair then
-			TweenService:Create(Topbar.CornerRepair, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-		end
-		if Topbar.Divider then
-			TweenService:Create(Topbar.Divider, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-		end
-
-		-- ✅ Fade out Main background หรือ Frame ด้านใน
-		if Main:FindFirstChild("Background") then
-			TweenService:Create(Main.Background, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-			task.wait(0.4)
-			Main.Background.Visible = false
-		end
-
-		task.wait(0.3)
-		Elements.Visible = false
-		TabList.Visible = false
-		Main.Visible = false
-
-		isMinimised = true
-	else
-		-- ================= RESTORE =================
-		Topbar.ChangeSize.Image = "rbxassetid://"..11036884235 -- icon เดิม
-		Topbar.UIStroke.Color = SelectedTheme.ElementStroke
-
-		Main.Visible = true
-		if Main:FindFirstChild("Background") then
-			Main.Background.Visible = true
-			TweenService:Create(Main.Background, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
-		end
-		Elements.Visible = true
-		TabList.Visible = true
-
-		-- คืนค่า transparency ของ element
-		for _, tab in ipairs(Elements:GetChildren()) do
-			if tab.ClassName == "ScrollingFrame" then
-				for _, element in ipairs(tab:GetChildren()) do
-					if element:IsA("Frame") then
-						element.Visible = true
-						TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
-						if element:FindFirstChild("Title") then
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0}):Play()
-						end
-					end
-				end
-			end
-		end
-
-		isMinimised = false
 	end
 
+	TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+	TweenService:Create(Topbar.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
+	TweenService:Create(Main.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
+	TweenService:Create(Topbar.CornerRepair, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
+	TweenService:Create(Topbar.Divider, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
+	TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 495, 0, 45)}):Play()
+	TweenService:Create(Topbar, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 495, 0, 45)}):Play()
+
+	task.wait(0.3)
+
+	Elements.Visible = false
+	TabList.Visible = false
+
+	task.wait(0.2)
 	Debounce = false
 end
-
 
 local function saveSettings() -- Save settings to config file
 	local encoded
@@ -1574,7 +1506,7 @@ local function createSettings(window)
 		return
 	end
 
-	local newTab = window:CreateTab('Settings', 0, true)
+	local newTab = window:CreateTab('Rayfield Settings', 0, true)
 
 	if TabList['Rayfield Settings'] then
 		TabList['Rayfield Settings'].LayoutOrder = 1000
@@ -1697,7 +1629,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 	LoadingFrame.Subtitle.Text = Settings.LoadingSubtitle or "Interface Suite"
 
 	if Settings.LoadingTitle ~= "Rayfield Interface Suite" then
-		LoadingFrame.Version.Text = "Chx UI"
+		LoadingFrame.Version.Text = "Rayfield UI"
 	end
 
 	if Settings.Icon and Settings.Icon ~= 0 and Topbar:FindFirstChild('Icon') then
@@ -2189,7 +2121,14 @@ function RayfieldLibrary:CreateWindow(Settings)
 					return
 				end
 				if not Success then
+					TweenService:Create(Button, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Button.ElementIndicator, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+					TweenService:Create(Button.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Button.Title.Text = "Callback Error"
+					print("Rayfield | "..ButtonSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Button.Title.Text = ButtonSettings.Name
 					TweenService:Create(Button, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Button.ElementIndicator, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {TextTransparency = 0.9}):Play()
 					TweenService:Create(Button.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
@@ -2687,7 +2626,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end)
 
 				if not Success then
+					TweenService:Create(Input, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Input.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Input.Title.Text = "Callback Error"
+					print("Rayfield | "..InputSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Input.Title.Text = InputSettings.Name
 					TweenService:Create(Input, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Input.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 				end
@@ -2921,7 +2866,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 						end)
 
 						if not Success then
+							TweenService:Create(Dropdown, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+							TweenService:Create(Dropdown.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+							Dropdown.Title.Text = "Callback Error"
+							print("Rayfield | "..DropdownSettings.Name.." Callback Error " ..tostring(Response))
+							warn('Check docs.sirius.menu for help with Rayfield specific development.')
 							task.wait(0.5)
+							Dropdown.Title.Text = DropdownSettings.Name
 							TweenService:Create(Dropdown, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 							TweenService:Create(Dropdown.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 						end
@@ -3005,7 +2956,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 					DropdownSettings.Callback(NewOption)
 				end)
 				if not Success then
+					TweenService:Create(Dropdown, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Dropdown.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Dropdown.Title.Text = "Callback Error"
+					print("Rayfield | "..DropdownSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Dropdown.Title.Text = DropdownSettings.Name
 					TweenService:Create(Dropdown, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Dropdown.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 				end
@@ -3120,7 +3077,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 					if not KeybindSettings.HoldToInteract then
 						local Success, Response = pcall(KeybindSettings.Callback)
 						if not Success then
+							TweenService:Create(Keybind, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+							TweenService:Create(Keybind.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+							Keybind.Title.Text = "Callback Error"
+							print("Rayfield | "..KeybindSettings.Name.." Callback Error " ..tostring(Response))
+							warn('Check docs.sirius.menu for help with Rayfield specific development.')
 							task.wait(0.5)
+							Keybind.Title.Text = KeybindSettings.Name
 							TweenService:Create(Keybind, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 							TweenService:Create(Keybind.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 						end
@@ -3244,7 +3207,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end)
 
 				if not Success then
+					TweenService:Create(Toggle, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Toggle.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Toggle.Title.Text = "Callback Error"
+					print("Rayfield | "..ToggleSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Toggle.Title.Text = ToggleSettings.Name
 					TweenService:Create(Toggle, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Toggle.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 				end
@@ -3288,7 +3257,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end)
 
 				if not Success then
+					TweenService:Create(Toggle, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Toggle.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Toggle.Title.Text = "Callback Error"
+					print("Rayfield | "..ToggleSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Toggle.Title.Text = ToggleSettings.Name
 					TweenService:Create(Toggle, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Toggle.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 				end
@@ -3431,7 +3406,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 								SliderSettings.Callback(NewValue)
 							end)
 							if not Success then
+								TweenService:Create(Slider, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+								TweenService:Create(Slider.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+								Slider.Title.Text = "Callback Error"
+								print("Rayfield | "..SliderSettings.Name.." Callback Error " ..tostring(Response))
+								warn('Check docs.sirius.menu for help with Rayfield specific development.')
 								task.wait(0.5)
+								Slider.Title.Text = SliderSettings.Name
 								TweenService:Create(Slider, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 								TweenService:Create(Slider.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 							end
@@ -3459,7 +3440,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end)
 
 				if not Success then
+					TweenService:Create(Slider, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Slider.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Slider.Title.Text = "Callback Error"
+					print("Rayfield | "..SliderSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Slider.Title.Text = SliderSettings.Name
 					TweenService:Create(Slider, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Slider.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 				end
@@ -3688,16 +3675,8 @@ end
 
 
 Topbar.Hide.MouseButton1Click:Connect(function()
-	if Debounce then return end
-	if Hidden then
-		Hidden = false
-		Unhide()
-	else
-		Hidden = true
-		Hide(true) -- เรียกใช้ฟังก์ชัน Hide โดยตรง
-	end
+	setVisibility(Hidden, not useMobileSizing)
 end)
-
 
 hideHotkeyConnection = UserInputService.InputBegan:Connect(function(input, processed)
 	if (input.KeyCode == Enum.KeyCode[getSetting("General", "rayfieldOpen")]) and not processed then
@@ -3707,7 +3686,7 @@ hideHotkeyConnection = UserInputService.InputBegan:Connect(function(input, proce
 			Unhide()
 		else
 			Hidden = true
-			Hide(true)
+			Hide()
 		end
 	end
 end)
