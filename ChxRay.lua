@@ -736,24 +736,6 @@ for _, obj in pairs(Workspace:GetDescendants()) do
     end
 end
 
--- ================= ภาษา =================
-local language = "EN" -- "TH" = ไทย, "EN" = อังกฤษ
-local LANG = {
-    EN = {
-        miscTab = "Misc",
-        miscSection = "Misc",
-        boostFPS = "Boost FPS",
-        removeFog = "Remove Fog",
-        brightenMap = "Brighten Map"
-    },
-    TH = {
-        miscTab = "ตั้งค่าอื่นๆ",
-        miscSection = "ตั้งค่าอื่นๆ",
-        boostFPS = "เพิ่ม FPS",
-        removeFog = "ลบหมอก",
-        brightenMap = "ทำแมพสว่าง"
-    }
-}
 
 -- ================= Misc Tab =================
 local MiscTab = Window:CreateTab(LANG[language].miscTab, 4483362458)
