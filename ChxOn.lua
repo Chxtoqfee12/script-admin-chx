@@ -220,15 +220,6 @@ end)
 
 
 
-
-
--- สมมติว่าแท็บ MiscTab ถูกสร้างแล้ว
-local MiscTab = Window:MakeTab({
-    Name = "Misc",
-    Icon = "rbxassetid://6036617171",
-    PremiumOnly = false
-})
-
 -- Invisible variables
 local invisRunning = false
 local IsInvis = false
@@ -658,58 +649,97 @@ ESPTab:AddSlider({Name="Text Size", Min=8, Max=40, Default=textSize, Increment=1
 
 
 
--- ========== Misc Tab ==========
-local OriginalLighting={
-    Ambient=Lighting.Ambient,
-    OutdoorAmbient=Lighting.OutdoorAmbient,
-    Brightness=Lighting.Brightness,
-    FogStart=Lighting.FogStart,
-    FogEnd=Lighting.FogEnd,
-    GlobalShadows=Lighting.GlobalShadows
+-- ================= Misc Tab =================
+local Lighting = game:GetService("Lighting")
+
+-- เก็บค่าเดิมของ Lighting
+local OriginalLighting = {
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    Brightness = Lighting.Brightness,
+    FogStart = Lighting.FogStart,
+    FogEnd = Lighting.FogEnd,
+    GlobalShadows = Lighting.GlobalShadows
 }
 
-local OriginalWorkspace={}
-for _,obj in pairs(Workspace:GetDescendants()) do
+-- เก็บค่าเดิมของ Workspace
+local OriginalWorkspace = {}
+for _, obj in pairs(workspace:GetDescendants()) do
     if obj:IsA("BasePart") or obj:IsA("MeshPart") then
         local texID
-        pcall(function() texID=obj.TextureID end)
-        OriginalWorkspace[obj]={Material=obj.Material,Reflectance=obj.Reflectance,TextureID=texID}
+        pcall(function() texID = obj.TextureID end)
+        OriginalWorkspace[obj] = {Material = obj.Material, Reflectance = obj.Reflectance, TextureID = texID}
     elseif obj:IsA("Decal") or obj:IsA("Texture") then
-        OriginalWorkspace[obj]={Transparency=obj.Transparency}
+        OriginalWorkspace[obj] = {Transparency = obj.Transparency}
     elseif obj:IsA("ParticleEmitter") then
-        OriginalWorkspace[obj]={Enabled=obj.Enabled}
+        OriginalWorkspace[obj] = {Enabled = obj.Enabled}
     end
 end
 
-MiscTab:AddToggle({Name="Boost FPS", Default=false, Callback=function(state)
-    for _,v in pairs(Workspace:GetDescendants()) do
-        pcall(function()
-            if state then
-                if v:IsA("BasePart") then v.Material=Enum.Material.Plastic v.Reflectance=0 v.TextureID="" end
-                if v:IsA("MeshPart") then v.Material=Enum.Material.Plastic v.TextureID="" end
-                if v:IsA("Decal") or v:IsA("Texture") then v.Transparency=1 end
-                if v:IsA("ParticleEmitter") then v.Enabled=false end
-            else
-                local data=OriginalWorkspace[v]
-                if data then
-                    if v:IsA("BasePart") or v:IsA("MeshPart") then v.Material=data.Material v.Reflectance=data.Reflectance if data.TextureID then v.TextureID=data.TextureID end end
-                    if v:IsA("Decal") or v:IsA("Texture") then v.Transparency=data.Transparency end
-                    if v:IsA("ParticleEmitter") then v.Enabled=data.Enabled end
+-- Toggle: Boost FPS
+MiscTab:AddToggle({
+    Name = "Boost FPS",
+    Default = false,
+    Callback = function(state)
+        for _, v in pairs(workspace:GetDescendants()) do
+            pcall(function()
+                if state then
+                    if v:IsA("BasePart") then v.Material = Enum.Material.Plastic v.Reflectance = 0 v.TextureID = "" end
+                    if v:IsA("MeshPart") then v.Material = Enum.Material.Plastic v.TextureID = "" end
+                    if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = 1 end
+                    if v:IsA("ParticleEmitter") then v.Enabled = false end
+                else
+                    local data = OriginalWorkspace[v]
+                    if data then
+                        if v:IsA("BasePart") or v:IsA("MeshPart") then
+                            v.Material = data.Material
+                            v.Reflectance = data.Reflectance
+                            if data.TextureID then v.TextureID = data.TextureID end
+                        end
+                        if v:IsA("Decal") or v:IsA("Texture") then
+                            v.Transparency = data.Transparency
+                        end
+                        if v:IsA("ParticleEmitter") then
+                            v.Enabled = data.Enabled
+                        end
+                    end
                 end
-            end
-        end)
+            end)
+        end
+        Lighting.GlobalShadows = (state and false or OriginalLighting.GlobalShadows)
     end
-    Lighting.GlobalShadows=(state and false or OriginalLighting.GlobalShadows)
-end})
+})
 
-MiscTab:AddToggle({Name="Remove Fog", Default=false, Callback=function(state)
-    if state then Lighting.FogStart=0 Lighting.FogEnd=100000 else Lighting.FogStart=OriginalLighting.FogStart Lighting.FogEnd=OriginalLighting.FogEnd end
-end})
+-- Toggle: Remove Fog
+MiscTab:AddToggle({
+    Name = "Remove Fog",
+    Default = false,
+    Callback = function(state)
+        if state then
+            Lighting.FogStart = 0
+            Lighting.FogEnd = 100000
+        else
+            Lighting.FogStart = OriginalLighting.FogStart
+            Lighting.FogEnd = OriginalLighting.FogEnd
+        end
+    end
+})
 
-MiscTab:AddToggle({Name="Brighten Map", Default=false, Callback=function(state)
-    if state then Lighting.Ambient=Color3.fromRGB(255,255,255) Lighting.OutdoorAmbient=Color3.fromRGB(255,255,255) Lighting.Brightness=2
-    else Lighting.Ambient=OriginalLighting.Ambient Lighting.OutdoorAmbient=OriginalLighting.OutdoorAmbient Lighting.Brightness=OriginalLighting.Brightness end
-end})
-
+-- Toggle: Brighten Map
+MiscTab:AddToggle({
+    Name = "Brighten Map",
+    Default = false,
+    Callback = function(state)
+        if state then
+            Lighting.Ambient = Color3.fromRGB(255,255,255)
+            Lighting.OutdoorAmbient = Color3.fromRGB(255,255,255)
+            Lighting.Brightness = 2
+        else
+            Lighting.Ambient = OriginalLighting.Ambient
+            Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient
+            Lighting.Brightness = OriginalLighting.Brightness
+        end
+    end
+})
 -- ========== Notification ==========
 showNotification("Chx Script", "Fly / Speed / Jump / Noclip / Invisible / ESP", 5)
