@@ -320,15 +320,16 @@ MainTab:AddToggle({
     Default = false,
     Flag = "InvisibleToggle",
     Callback = function(value)
-        local success, err
         if value then
-            success, err = pcall(TurnInvisible)
-            if not success then warn("TurnInvisible error: "..tostring(err)) end
-            if success then showNotification("Invisible", "Invisible: ON", 4) end
+            local success, err = pcall(TurnInvisible)
+            if not success then
+                warn("TurnInvisible error: "..tostring(err))
+            end
         else
-            success, err = pcall(TurnVisible)
-            if not success then warn("TurnVisible error: "..tostring(err)) end
-            if success then showNotification("Invisible", "Invisible: OFF", 4) end
+            local success, err = pcall(TurnVisible)
+            if not success then
+                warn("TurnVisible error: "..tostring(err))
+            end
         end
     end
 })
@@ -480,20 +481,27 @@ local function startFollowing()
     end
 end
 
--- UI Orion
-FollowTab:AddTextbox({
-    Name = "Target Player",
-    Default = "",
-    TextDisappear = false,
-    Callback = function(text)
-        local found
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr.Name:lower() == text:lower() and plr ~= LocalPlayer then
-                found = plr
-                break
-            end
+-- เก็บรายการผู้เล่นปัจจุบัน
+local playerList = {}
+local function updatePlayerList()
+    playerList = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            table.insert(playerList, plr.Name)
         end
-        targetPlayer = found
+    end
+end
+
+-- เรียกครั้งแรก
+updatePlayerList()
+
+-- Dropdown สำหรับเลือกผู้เล่น
+local targetDropdown = FollowTab:AddDropdown({
+    Name = "Target Player",
+    Default = playerList[1] or "None",
+    Options = playerList,
+    Callback = function(selected)
+        targetPlayer = Players:FindFirstChild(selected)
         if targetPlayer then
             print("Target set to: "..targetPlayer.Name)
         else
@@ -501,6 +509,36 @@ FollowTab:AddTextbox({
         end
     end
 })
+
+-- ปุ่ม Refresh ผู้เล่น
+FollowTab:AddButton({
+    Name = "Refresh Players",
+    Callback = function()
+        updatePlayerList()
+        -- อัปเดตรายการ Dropdown
+        targetDropdown:Refresh(playerList)
+        print("Players list refreshed")
+    end
+})
+
+-- อัปเดตรายชื่ออัตโนมัติเมื่อมีผู้เล่นเข้า/ออก
+Players.PlayerAdded:Connect(function(plr)
+    if plr ~= LocalPlayer then
+        table.insert(playerList, plr.Name)
+        targetDropdown:Refresh(playerList)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    for i, name in ipairs(playerList) do
+        if name == plr.Name then
+            table.remove(playerList, i)
+            break
+        end
+    end
+    targetDropdown:Refresh(playerList)
+end)
+
 
 FollowTab:AddToggle({
     Name = "Follow Player",
