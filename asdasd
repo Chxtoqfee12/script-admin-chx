@@ -1,0 +1,139 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+local LocalPlayer = Players.LocalPlayer
+
+-- Settings
+local radius = 15
+local attackDelay = 0.3
+local knockbackPower = 60
+local aoeEnabled = false
+local lastAttack = 0
+local aoeConnection
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "AOE_GUI"
+
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 240, 0, 180)
+Frame.Position = UDim2.new(0.05, 0, 0.2, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+
+local Title = Instance.new("TextLabel", Frame)
+Title.Size = UDim2.new(1,0,0,30)
+Title.Text = "AOE Slap"
+Title.BackgroundTransparency = 1
+Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 18
+
+-- Toggle Button
+local ToggleButton = Instance.new("TextButton", Frame)
+ToggleButton.Size = UDim2.new(0.9,0,0,30)
+ToggleButton.Position = UDim2.new(0.05,0,0.25,0)
+ToggleButton.Text = "AOE: OFF"
+ToggleButton.BackgroundColor3 = Color3.fromRGB(200,50,50)
+ToggleButton.TextColor3 = Color3.fromRGB(255,255,255)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.TextSize = 16
+
+-- Input function
+local function createInput(name, yPos, default, min, max, step, callback)
+    local label = Instance.new("TextLabel", Frame)
+    label.Size = UDim2.new(0.5,-5,0,25)
+    label.Position = UDim2.new(0.05,0,yPos,0)
+    label.Text = name
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.Font = Enum.Font.SourceSans
+    label.TextSize = 14
+
+    local box = Instance.new("TextBox", Frame)
+    box.Size = UDim2.new(0.45,0,0,25)
+    box.Position = UDim2.new(0.5,0,yPos,0)
+    box.Text = tostring(default)
+    box.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    box.TextColor3 = Color3.fromRGB(255,255,255)
+    box.Font = Enum.Font.SourceSans
+    box.TextSize = 14
+
+    box.FocusLost:Connect(function()
+        local val = tonumber(box.Text)
+        if val then
+            val = math.clamp(val,min,max)
+            val = math.floor(val/step + 0.5)*step
+            box.Text = tostring(val)
+            callback(val)
+        else
+            box.Text = tostring(default)
+        end
+    end)
+end
+
+-- Inputs
+createInput("Radius",0.6,radius,1,100,1,function(val) radius=val end)
+createInput("Delay",0.75,attackDelay,0.05,5,0.01,function(val) attackDelay=val end)
+
+-- ฟังก์ชัน AOE Slap
+local function FireAOE()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local center = char.HumanoidRootPart.Position
+
+    local slapTool = char:FindFirstChild("Slap")
+    local slapEvent = slapTool and slapTool:FindFirstChild("Event")
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local targetHRP = plr.Character.HumanoidRootPart
+            local dist = (targetHRP.Position - center).Magnitude
+
+            if dist <= radius then
+                -- กระเด็นผู้เล่นคนอื่น
+                if targetHRP.Anchored then targetHRP.Anchored=false end
+                local direction = (targetHRP.Position - center).Unit
+                local bv = Instance.new("BodyVelocity")
+                bv.Velocity = direction * knockbackPower + Vector3.new(0,knockbackPower*0.3,0)
+                bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+                bv.P = 1250
+                bv.Parent = targetHRP
+                Debris:AddItem(bv,0.3)
+
+                -- Damage เฉพาะถือ Slap
+                if slapEvent then
+                    local args = {"slash",plr.Character,targetHRP.Position}
+                    slapEvent:FireServer(unpack(args))
+                end
+            end
+        end
+    end
+end
+
+-- Toggle Event AOE
+ToggleButton.MouseButton1Click:Connect(function()
+    aoeEnabled = not aoeEnabled
+    if aoeEnabled then
+        ToggleButton.Text = "AOE: ON"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(50,200,50)
+
+        aoeConnection = RunService.Heartbeat:Connect(function()
+            if tick()-lastAttack >= attackDelay then
+                FireAOE()
+                lastAttack = tick()
+            end
+        end)
+    else
+        ToggleButton.Text = "AOE: OFF"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(200,50,50)
+
+        if aoeConnection then
+            aoeConnection:Disconnect()
+            aoeConnection=nil
+        end
+    end
+end)
