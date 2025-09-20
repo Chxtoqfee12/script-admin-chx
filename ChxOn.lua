@@ -105,10 +105,33 @@ local MiscTab = Window:MakeTab({
 })
 MiscTab:AddSection({Name = "Misc"})
 
--- ========== Main controls (Speed / Jump) ==========
 -- store slider objects (if Orion returns them)
 local walkSliderObj, jumpSliderObj
 
+-- ตั้งค่าเริ่มต้น
+local currentValues = {
+    WalkSpeed = 50,  -- ปรับตามต้องการ
+    JumpPower = 100  -- ปรับตามต้องการ
+}
+
+-- ฟังก์ชันใช้ค่า Boosts
+local function applyBoosts()
+    local player = game.Players.LocalPlayer
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid.WalkSpeed = currentValues.WalkSpeed
+        player.Character.Humanoid.JumpPower = currentValues.JumpPower
+    end
+end
+
+-- loop ล็อคค่าไม่ให้เกมเปลี่ยน
+spawn(function()
+    while true do
+        wait(0.1)  -- ตรวจสอบทุก 0.1 วินาที
+        applyBoosts()
+    end
+end)
+
+-- ===== Sliders =====
 MainTab:AddSlider({
     Name = "Walk Speed",
     Min = 16,
