@@ -263,9 +263,9 @@ local function startFloat()
     if floatPart or not hrp then return end
 
     floatPart = Instance.new("Part")
-    floatPart.Size = Vector3.new(6, 1, 6)
+    floatPart.Size = Vector3.new(6, 0.5, 6)
     floatPart.Anchored = true
-    floatPart.Transparency = 1
+    floatPart.Transparency = 0.5
     floatPart.Color = Color3.fromRGB(0, 200, 255)
     floatPart.Name = "FloatPlatform"
     floatPart.Parent = workspace
@@ -273,7 +273,7 @@ local function startFloat()
     -- ติดตามใต้เท้า
     floatConnection = RunService.RenderStepped:Connect(function()
         if hrp and floatPart then
-            floatPart.CFrame = CFrame.new(hrp.Position - Vector3.new(0, 3.7, 0))
+            floatPart.CFrame = CFrame.new(hrp.Position - Vector3.new(0, 3.5, 0))
         end
     end)
 end
