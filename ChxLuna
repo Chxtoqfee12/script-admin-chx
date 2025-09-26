@@ -1,0 +1,138 @@
+--[[ CHX By ChristopFxx - Luna Float Platform ภาษาไทย ]]
+local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/Luna.lib", true))()
+
+-- ===== สร้างหน้าต่าง =====
+local Window = Luna:CreateWindow({
+	Name = "Script CHX",
+	Subtitle = "Float + Luna UI",
+	LogoID = nil,
+	LoadingEnabled = true,
+	LoadingTitle = "Script CHX",
+	LoadingSubtitle = "by ChristopFxx",
+	ConfigSettings = {
+		RootFolder = nil,
+		ConfigFolder = "FloatPlatformHub"
+	},
+	KeySystem = false
+})
+
+-- ===== หน้าแรก =====
+Window:CreateHomeTab({
+	SupportedExecutors = {"Synapse X", "Krnl", "Fluxus"},
+	DiscordInvite = "zHMEUZrHZ6",
+	Icon = 1
+})
+
+-- ===== หน้า Float =====
+local Tab = Window:CreateTab({
+	Name = "การควบคุลอยตัว",
+	Icon = "airplanemode_active",
+	ImageSource = "Material",
+	ShowTitle = true
+})
+
+-- ===== ตัวแปร =====
+local Floating = false
+local FloatHeight = 5
+local FloatSpeed = 10
+local AutoReset = false
+local Hotkey = Enum.KeyCode.F -- ปุ่มลอยตัว
+
+local player = game:GetService("Players").LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local char = player.Character or player.CharacterAdded:Wait()
+local root = char:WaitForChild("HumanoidRootPart")
+
+-- ===== ฟังก์ชัน =====
+local function enableFloat()
+	if Floating then return end
+	Floating = true
+	local floatY = root.Position.Y
+	local floatLoop
+	floatLoop = RunService.Heartbeat:Connect(function(dt)
+		if not Floating then floatLoop:Disconnect() return end
+		local targetY = floatY + FloatHeight
+		local currentY = root.Position.Y
+		local diff = targetY - currentY
+		root.Velocity = Vector3.new(0, diff * FloatSpeed * dt, 0)
+	end)
+end
+
+local function disableFloat()
+	Floating = false
+	root.Velocity = Vector3.new(0,0,0)
+	if AutoReset then
+		root.CFrame = CFrame.new(root.Position.X, root.Position.Y, root.Position.Z)
+	end
+end
+
+-- ===== UI =====
+Tab:CreateToggle({
+	Name = "เปิด/ปิด ลอยตัว",
+	CurrentValue = false,
+	Callback = function(val)
+		if val then
+			enableFloat()
+		else
+			disableFloat()
+		end
+	end
+})
+
+Tab:CreateSlider({
+	Name = "ความสูงของการลอยตัว",
+	Range = {1, 20},
+	Increment = 1,
+	CurrentValue = FloatHeight,
+	Callback = function(val)
+		FloatHeight = val
+	end
+})
+
+Tab:CreateSlider({
+	Name = "ความเร็วในการลอยตัว",
+	Range = {1, 50},
+	Increment = 1,
+	CurrentValue = FloatSpeed,
+	Callback = function(val)
+		FloatSpeed = val
+	end
+})
+
+Tab:CreateToggle({
+	Name = "รีเซ็ตอัตโนมัติเมื่อปิดลอยตัว",
+	CurrentValue = AutoReset,
+	Callback = function(val)
+		AutoReset = val
+	end
+})
+
+Tab:CreateInput({
+	Name = "ตั้งปุ่มลอยตัว (F)",
+	PlaceholderText = "กดปุ่มที่ต้องการ",
+	CurrentValue = "F",
+	Callback = function(val)
+		local key = val:upper()
+		local success, code = pcall(function()
+			return Enum.KeyCode[key]
+		end)
+		if success and code then
+			Hotkey = code
+		else
+			print("ปุ่มไม่ถูกต้อง")
+		end
+	end
+})
+
+-- ===== ฟังชัน Hotkey =====
+UserInputService.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == Hotkey then
+		if Floating then
+			disableFloat()
+		else
+			enableFloat()
+		end
+	end
+end)
