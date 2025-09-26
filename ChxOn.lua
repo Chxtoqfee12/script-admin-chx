@@ -67,7 +67,7 @@ end
 
 -- ========== Window & Tabs ==========
 local Window = OrionLib:MakeWindow({
-    Name = "Chx Script / discord.gg/zHMEUZrHZ6",
+    Name = "Chx Script",
     HidePremium = false,
     SaveConfig = false,
     ConfigFolder = "ChxScript"
@@ -449,8 +449,6 @@ local followConnection, noclipConnection, activeAnimation, attachmentLoop
 -- Animation IDs
 local animBangedR15 = "10714360343"
 local animBangedR6  = "189854234"
-local animSuckR15   = "5918726674"
-local animSuckR6    = "178130996"
 
 -- ฟังก์ชันเช็ค Rig
 local function isR6Character(plr)
@@ -515,26 +513,7 @@ local function startBanged()
     end)
 end
 
--- ฟังก์ชัน Suck
-local function startSuck()
-    if not targetPlayer or not targetPlayer.Character then return end
-    stopAction()
-    playAnim(isR6Character(LocalPlayer) and animSuckR6 or animSuckR15)
 
-    local targetTorso = targetPlayer.Character:FindFirstChild("LowerTorso") or targetPlayer.Character:FindFirstChild("UpperTorso")
-    attachmentLoop = RunService.Heartbeat:Connect(function()
-        local myChar = LocalPlayer.Character
-        if myChar and targetTorso then
-            local hrp = myChar:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                myChar.PrimaryPart = hrp
-                hrp.CFrame = targetTorso.CFrame * CFrame.new(0,-2.3,-1) * CFrame.Angles(0,math.pi,0)
-            end
-        else
-            stopAction()
-        end
-    end)
-end
 
 -- ฟังก์ชัน Follow
 local function startFollowing()
@@ -630,13 +609,6 @@ FollowTab:AddToggle({
     end
 })
 
-FollowTab:AddToggle({
-    Name = "🎉 Suck",
-    Default = false,
-    Callback = function(Value)
-        if Value then startSuck() else stopAction() end
-    end
-})
 
 
 
