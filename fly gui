@@ -205,8 +205,6 @@ onof.MouseButton1Down:connect(function()
     end
 
 
-
-
     if game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid").RigType == Enum.HumanoidRigType.R6 then
 
 
