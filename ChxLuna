@@ -185,31 +185,30 @@ end
 MainTab:CreateToggle({Name="มองไม่เห็น", CurrentValue=false, Callback=function(val) if val then pcall(TurnInvisible) else pcall(TurnVisible) end end})
 
 -- ================= Follow Tab =================
-local FollowTab = Window:CreateTab({Name="ติดตามผู้เล่น", Icon="person", ShowTitle=true})
+local FollowTab = Window:CreateTab({
+    Name = "ติดตามผู้เล่น",
+    Icon = "person",
+    ShowTitle = true
+})
 
 local targetPlayer = nil
-local followConnection, noclipFollow, activeAnimation, attachmentLoop
+local followConnection, activeAnimation
 
 -- Animation IDs
 local animBangedR15 = "10714360343"
 local animBangedR6  = "189854234"
 
--- ฟังก์ชันตรวจสอบ R6
 local function isR6Character(plr)
     local char = plr and plr.Character
     if not char then return false end
     return char:FindFirstChild("Torso") ~= nil
 end
 
--- หยุดทุก action
 local function stopAction()
     if followConnection then followConnection:Disconnect() followConnection=nil end
-    if noclipFollow then noclipFollow:Disconnect() noclipFollow=nil end
-    if attachmentLoop then attachmentLoop:Disconnect() attachmentLoop=nil end
     if activeAnimation then activeAnimation:Stop() activeAnimation=nil end
 end
 
--- เล่น animation
 local function playAnim(animId)
     local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
@@ -225,18 +224,31 @@ local function playAnim(animId)
     end
 end
 
--- ฟังก์ชัน Banged (เวอร์ชันเก่า)
 local function startBanged()
     if not targetPlayer or not targetPlayer.Character then return end
     stopAction()
     playAnim(isR6Character(player) and animBangedR6 or animBangedR15)
+
     task.spawn(function()
-        while activeAnimation and targetPlayer.Character do
+        while activeAnimation and targetPlayer and targetPlayer.Character do
             local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
             local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
             if targetHRP and myHRP then
-                local fwd = targetHRP.CFrame * CFrame.new(0,0,-1.5)
+                local fwd, bwd
+                if isR6Character(player) then
+                    -- R6 จะวาปอยู่ด้านหลังเล็กน้อย
+                    fwd = targetHRP.CFrame * CFrame.new(0,0,-2.5)
+                    bwd = targetHRP.CFrame * CFrame.new(0,0,-1.3)
+                else
+                    -- R15 วาปไปด้านหลัง
+                    fwd = targetHRP.CFrame * CFrame.new(0,0,-1.5)
+                    bwd = targetHRP.CFrame * CFrame.new(0,0,-1.1)
+                end
+
+                -- Tween ไปตำแหน่งหน้า/หลังเป้าหมาย
                 TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=fwd}):Play()
+                task.wait(0.15)
+                TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=bwd}):Play()
                 task.wait(0.15)
             else
                 stopAction()
@@ -246,10 +258,9 @@ local function startBanged()
     end)
 end
 
--- ฟังก์ชัน Follow Player
+
 local function startFollowing()
     if targetPlayer and targetPlayer.Character then
-        stopAction()
         followConnection = RunService.Heartbeat:Connect(function()
             if player.Character and targetPlayer.Character then
                 local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -269,14 +280,15 @@ local function updatePlayerList()
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player then table.insert(playerList, plr.Name) end
     end
+    if #playerList==0 then table.insert(playerList,"None") end
 end
 updatePlayerList()
 
--- Dropdown เลือกผู้เล่น
+-- Dropdown
 local targetDropdown = FollowTab:CreateDropdown({
     Name = "ผู้เล่นเป้าหมาย",
     Options = playerList,
-    CurrentOption = playerList[1] or "None",
+    CurrentOption = playerList[1],
     Callback = function(selected)
         targetPlayer = Players:FindFirstChild(selected)
     end
@@ -312,16 +324,17 @@ FollowTab:CreateToggle({
 -- อัปเดตรายชื่อผู้เล่นอัตโนมัติ
 Players.PlayerAdded:Connect(function(plr)
     if plr ~= player then
-        table.insert(playerList, plr.Name)
+        updatePlayerList()
         targetDropdown:Refresh(playerList)
     end
 end)
 Players.PlayerRemoving:Connect(function(plr)
-    for i,name in ipairs(playerList) do
-        if name==plr.Name then table.remove(playerList,i) break end
-    end
+    updatePlayerList()
     targetDropdown:Refresh(playerList)
 end)
+
+
+
 
 
 -- ================= ESP Tab =================
