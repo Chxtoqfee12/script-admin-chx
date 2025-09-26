@@ -253,6 +253,61 @@ UIS.JumpRequest:Connect(function()
 end)
 
 
+-- ========== Float Variables ==========
+local floatEnabled = false
+local floatPart = nil
+local floatConnection = nil
+
+-- ฟังก์ชันเริ่ม Float
+local function startFloat()
+    if floatPart or not hrp then return end
+
+    floatPart = Instance.new("Part")
+    floatPart.Size = Vector3.new(6, 1, 6)
+    floatPart.Anchored = true
+    floatPart.Transparency = 1
+    floatPart.Color = Color3.fromRGB(0, 200, 255)
+    floatPart.Name = "FloatPlatform"
+    floatPart.Parent = workspace
+
+    -- ติดตามใต้เท้า
+    floatConnection = RunService.RenderStepped:Connect(function()
+        if hrp and floatPart then
+            floatPart.CFrame = CFrame.new(hrp.Position - Vector3.new(0, 3.7, 0))
+        end
+    end)
+end
+
+-- ฟังก์ชันหยุด Float
+local function stopFloat()
+    if floatConnection then
+        floatConnection:Disconnect()
+        floatConnection = nil
+    end
+    if floatPart then
+        floatPart:Destroy()
+        floatPart = nil
+    end
+end
+
+-- ========== เพิ่มปุ่ม Toggle เข้า MainTab ==========
+MainTab:AddToggle({
+    Name = "Float Platform",
+    Default = false,
+    Save = false,
+    Flag = "FloatToggle",
+    Callback = function(state)
+        floatEnabled = state
+        if state then
+            startFloat()
+        else
+            stopFloat()
+        end
+    end
+})
+
+
+
 
 -- Invisible variables
 local invisRunning = false
