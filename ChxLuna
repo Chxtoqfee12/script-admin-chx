@@ -1,138 +1,519 @@
---[[ CHX By ChristopFxx - Luna Float Platform ภาษาไทย ]]
+-- =================== Map Check ===================
+local bannedMaps = {4954512662}
+for _, id in ipairs(bannedMaps) do
+    if game.PlaceId == id then
+        game.Players.LocalPlayer:Kick("แมพนี้ไม่สามารถเล่นได้ เนื่องจากอาจโดนแบนจากระบบ")
+        return
+    end
+end
+
+-- ================== Load Luna ===================
 local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/Luna.lib", true))()
 
--- ===== สร้างหน้าต่าง =====
-local Window = Luna:CreateWindow({
-	Name = "Script CHX",
-	Subtitle = "Float + Luna UI",
-	LogoID = nil,
-	LoadingEnabled = true,
-	LoadingTitle = "Script CHX",
-	LoadingSubtitle = "by ChristopFxx",
-	ConfigSettings = {
-		RootFolder = nil,
-		ConfigFolder = "FloatPlatformHub"
-	},
-	KeySystem = false
-})
-
--- ===== หน้าแรก =====
-Window:CreateHomeTab({
-	SupportedExecutors = {"Synapse X", "Krnl", "Fluxus"},
-	DiscordInvite = "zHMEUZrHZ6",
-	Icon = 1
-})
-
--- ===== หน้า Float =====
-local Tab = Window:CreateTab({
-	Name = "การควบคุลอยตัว",
-	Icon = "airplanemode_active",
-	ImageSource = "Material",
-	ShowTitle = true
-})
-
--- ===== ตัวแปร =====
-local Floating = false
-local FloatHeight = 5
-local FloatSpeed = 10
-local AutoReset = false
-local Hotkey = Enum.KeyCode.F -- ปุ่มลอยตัว
-
-local player = game:GetService("Players").LocalPlayer
+-- ================== Services & Player ==================
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local char = player.Character or player.CharacterAdded:Wait()
-local root = char:WaitForChild("HumanoidRootPart")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
 
--- ===== ฟังก์ชัน =====
-local function enableFloat()
-	if Floating then return end
-	Floating = true
-	local floatY = root.Position.Y
-	local floatLoop
-	floatLoop = RunService.Heartbeat:Connect(function(dt)
-		if not Floating then floatLoop:Disconnect() return end
-		local targetY = floatY + FloatHeight
-		local currentY = root.Position.Y
-		local diff = targetY - currentY
-		root.Velocity = Vector3.new(0, diff * FloatSpeed * dt, 0)
-	end)
+local player = Players.LocalPlayer
+
+-- ================== Character Setup ==================
+local character, humanoid, hrp
+local currentValues = {WalkSpeed=50, JumpPower=100, FlySpeed=50, Noclip=false, InfinityJump=false}
+
+local function setupCharacter(char)
+    character = char
+    hrp = char:WaitForChild("HumanoidRootPart")
+    humanoid = char:WaitForChild("Humanoid")
+    humanoid.WalkSpeed = currentValues.WalkSpeed
+    humanoid.JumpPower = currentValues.JumpPower
+    humanoid.PlatformStand = false
 end
 
-local function disableFloat()
-	Floating = false
-	root.Velocity = Vector3.new(0,0,0)
-	if AutoReset then
-		root.CFrame = CFrame.new(root.Position.X, root.Position.Y, root.Position.Z)
-	end
+if player.Character then setupCharacter(player.Character) end
+player.CharacterAdded:Connect(setupCharacter)
+
+-- ================== Notifications ==================
+local function showNotification(title, content, time)
+    Luna:CreateNotification({Name=title or "Notification", Content=content or "", Time=time or 4})
 end
 
--- ===== UI =====
-Tab:CreateToggle({
-	Name = "เปิด/ปิด ลอยตัว",
-	CurrentValue = false,
-	Callback = function(val)
-		if val then
-			enableFloat()
-		else
-			disableFloat()
-		end
-	end
+-- ================== Window & Tabs ==================
+local Window = Luna:CreateWindow({
+    Name = "Script CHX",
+    Subtitle = "Fly / Speed / Jump / Noclip / Invisible / ESP",
+    LoadingEnabled = true,
+    LoadingTitle = "Script CHX",
+    LoadingSubtitle = "by ChristopFxx",
+    ConfigSettings = {ConfigFolder = "ChxScript"},
+    KeySystem = false
 })
 
-Tab:CreateSlider({
-	Name = "ความสูงของการลอยตัว",
-	Range = {1, 20},
-	Increment = 1,
-	CurrentValue = FloatHeight,
-	Callback = function(val)
-		FloatHeight = val
-	end
-})
+-- ================= Main Tab =================
+local MainTab = Window:CreateTab({Name="หลัก", Icon="home", ShowTitle=true})
 
-Tab:CreateSlider({
-	Name = "ความเร็วในการลอยตัว",
-	Range = {1, 50},
-	Increment = 1,
-	CurrentValue = FloatSpeed,
-	Callback = function(val)
-		FloatSpeed = val
-	end
-})
+-- WalkSpeed Slider
+MainTab:CreateSlider({Name="ความเร็วเดิน", Range={16,500}, Increment=1, CurrentValue=currentValues.WalkSpeed, Callback=function(val)
+    currentValues.WalkSpeed = val
+    if humanoid then humanoid.WalkSpeed = val end
+end})
 
-Tab:CreateToggle({
-	Name = "รีเซ็ตอัตโนมัติเมื่อปิดลอยตัว",
-	CurrentValue = AutoReset,
-	Callback = function(val)
-		AutoReset = val
-	end
-})
+-- JumpPower Slider
+MainTab:CreateSlider({Name="พลังกระโดด", Range={50,500}, Increment=1, CurrentValue=currentValues.JumpPower, Callback=function(val)
+    currentValues.JumpPower = val
+    if humanoid then humanoid.JumpPower = val end
+end})
 
-Tab:CreateInput({
-	Name = "ตั้งปุ่มลอยตัว (F)",
-	PlaceholderText = "กดปุ่มที่ต้องการ",
-	CurrentValue = "F",
-	Callback = function(val)
-		local key = val:upper()
-		local success, code = pcall(function()
-			return Enum.KeyCode[key]
-		end)
-		if success and code then
-			Hotkey = code
-		else
-			print("ปุ่มไม่ถูกต้อง")
-		end
-	end
-})
+-- Fly Toggle
+local flyLoaded, flyGui = false, nil
+MainTab:CreateToggle({Name="ฟังก์ชันบิน", CurrentValue=false, Callback=function(state)
+    if state then
+        if not flyLoaded then
+            local success, err = pcall(function()
+                loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/fly%20gui', true))()
+            end)
+            if not success then showNotification("Fly GUI","โหลดไม่สำเร็จ: "..tostring(err),4) return end
+            flyGui = player:WaitForChild("PlayerGui"):FindFirstChild("main")
+            if flyGui then flyGui.Enabled = true flyLoaded = true end
+        else
+            if flyGui then flyGui.Enabled = true end
+        end
+    else
+        if flyGui then flyGui.Enabled = false end
+    end
+end})
 
--- ===== ฟังชัน Hotkey =====
-UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then return end
-	if input.KeyCode == Hotkey then
-		if Floating then
-			disableFloat()
-		else
-			enableFloat()
-		end
-	end
+-- Noclip Toggle
+local noclipConnection = nil
+local function setNoclip(state)
+    currentValues.Noclip = state
+    if state then
+        if not noclipConnection then
+            noclipConnection = RunService.Stepped:Connect(function()
+                if character then
+                    for _, v in pairs(character:GetDescendants()) do
+                        if v:IsA("BasePart") and v.CanCollide then v.CanCollide=false end
+                    end
+                end
+            end)
+        end
+    else
+        if noclipConnection then noclipConnection:Disconnect() noclipConnection=nil end
+    end
+end
+MainTab:CreateToggle({Name="Noclip", CurrentValue=false, Callback=setNoclip})
+
+-- Infinity Jump
+MainTab:CreateToggle({Name="กระโดดไม่จำกัด", CurrentValue=false, Callback=function(val) currentValues.InfinityJump=val end})
+UIS.JumpRequest:Connect(function()
+    if currentValues.InfinityJump and humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
 end)
+
+-- Float Platform
+local floatPart, floatConnection
+local function startFloat()
+    if floatPart or not hrp then return end
+    floatPart=Instance.new("Part")
+    floatPart.Size=Vector3.new(6,0.6,6)
+    floatPart.Anchored=true floatPart.Transparency=0.5
+    floatPart.Color=Color3.fromRGB(0,200,255)
+    floatPart.Name="FloatPlatform" floatPart.Parent=workspace
+    floatConnection = RunService.RenderStepped:Connect(function()
+        if hrp and floatPart then floatPart.CFrame = CFrame.new(hrp.Position-Vector3.new(0,3.3,0)) end
+    end)
+end
+local function stopFloat()
+    if floatConnection then floatConnection:Disconnect() floatConnection=nil end
+    if floatPart then floatPart:Destroy() floatPart=nil end
+end
+MainTab:CreateToggle({Name="แพลตฟอร์มลอยตัว", CurrentValue=false, Callback=function(val) if val then startFloat() else stopFloat() end end})
+
+-- Invisible
+local invisRunning, IsInvis, Character, InvisibleCharacter, bodyPos, invisDied=false,false,nil,nil,nil,nil
+local function TurnInvisible()
+    if invisRunning or IsInvis then return end
+    invisRunning=true
+    Character=player.Character
+    if not Character then invisRunning=false return end
+    Character.Archivable=true
+    InvisibleCharacter=Character:Clone()
+    InvisibleCharacter.Parent=workspace
+    for _,v in pairs(InvisibleCharacter:GetDescendants()) do
+        if v:IsA("BasePart") then v.Transparency = (v.Name=="HumanoidRootPart") and 1 or 0.5 end
+    end
+    local root=Character:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.CFrame = root.CFrame + Vector3.new(0,600,0)
+        bodyPos=Instance.new("BodyPosition")
+        bodyPos.MaxForce=Vector3.new(1e5,1e5,1e5)
+        bodyPos.P=3e4
+        bodyPos.Position=root.Position
+        bodyPos.Parent=root
+    end
+    player.Character=InvisibleCharacter
+    IsInvis=true
+    local humanoid=InvisibleCharacter:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        workspace.CurrentCamera.CameraSubject=humanoid
+        invisDied=humanoid.Died:Connect(TurnVisible)
+    end
+    if InvisibleCharacter:FindFirstChild("Animate") then
+        InvisibleCharacter.Animate.Disabled=true
+        InvisibleCharacter.Animate.Disabled=false
+    end
+    invisRunning=false
+end
+function TurnVisible()
+    if not IsInvis then return end
+    local CF
+    local root=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if root then CF=root.CFrame end
+    if InvisibleCharacter then InvisibleCharacter:Destroy() InvisibleCharacter=nil end
+    if Character and Character.Parent then
+        player.Character=Character
+        if CF and Character:FindFirstChild("HumanoidRootPart") then Character.HumanoidRootPart.CFrame=CF end
+        local humanoid=Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then workspace.CurrentCamera.CameraSubject=humanoid end
+    end
+    if bodyPos then bodyPos:Destroy() bodyPos=nil end
+    if Character and Character:FindFirstChild("Animate") then Character.Animate.Disabled=true Character.Animate.Disabled=false end
+    if invisDied then invisDied:Disconnect() invisDied=nil end
+    IsInvis=false
+end
+MainTab:CreateToggle({Name="มองไม่เห็น", CurrentValue=false, Callback=function(val) if val then pcall(TurnInvisible) else pcall(TurnVisible) end end})
+
+-- ================= Follow Tab =================
+local FollowTab = Window:CreateTab({Name="ติดตามผู้เล่น", Icon="person", ShowTitle=true})
+
+local targetPlayer = nil
+local followConnection, noclipFollow, activeAnimation, attachmentLoop
+
+-- Animation IDs
+local animBangedR15 = "10714360343"
+local animBangedR6  = "189854234"
+
+-- ฟังก์ชันตรวจสอบ R6
+local function isR6Character(plr)
+    local char = plr and plr.Character
+    if not char then return false end
+    return char:FindFirstChild("Torso") ~= nil
+end
+
+-- หยุดทุก action
+local function stopAction()
+    if followConnection then followConnection:Disconnect() followConnection=nil end
+    if noclipFollow then noclipFollow:Disconnect() noclipFollow=nil end
+    if attachmentLoop then attachmentLoop:Disconnect() attachmentLoop=nil end
+    if activeAnimation then activeAnimation:Stop() activeAnimation=nil end
+end
+
+-- เล่น animation
+local function playAnim(animId)
+    local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://"..animId
+        if animator then
+            activeAnimation = animator:LoadAnimation(anim)
+        else
+            activeAnimation = humanoid:LoadAnimation(anim)
+        end
+        activeAnimation:Play()
+    end
+end
+
+-- ฟังก์ชัน Banged (เวอร์ชันเก่า)
+local function startBanged()
+    if not targetPlayer or not targetPlayer.Character then return end
+    stopAction()
+    playAnim(isR6Character(player) and animBangedR6 or animBangedR15)
+    task.spawn(function()
+        while activeAnimation and targetPlayer.Character do
+            local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+            if targetHRP and myHRP then
+                local fwd = targetHRP.CFrame * CFrame.new(0,0,-1.5)
+                TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=fwd}):Play()
+                task.wait(0.15)
+            else
+                stopAction()
+                break
+            end
+        end
+    end)
+end
+
+-- ฟังก์ชัน Follow Player
+local function startFollowing()
+    if targetPlayer and targetPlayer.Character then
+        stopAction()
+        followConnection = RunService.Heartbeat:Connect(function()
+            if player.Character and targetPlayer.Character then
+                local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local myHRP = player.Character:FindFirstChild("HumanoidRootPart")
+                if targetHRP and myHRP then
+                    myHRP.CFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0,0,1), 0.2)
+                end
+            end
+        end)
+    end
+end
+
+-- อัปเดตรายชื่อผู้เล่น
+local playerList = {}
+local function updatePlayerList()
+    playerList = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then table.insert(playerList, plr.Name) end
+    end
+end
+updatePlayerList()
+
+-- Dropdown เลือกผู้เล่น
+local targetDropdown = FollowTab:CreateDropdown({
+    Name = "ผู้เล่นเป้าหมาย",
+    Options = playerList,
+    CurrentOption = playerList[1] or "None",
+    Callback = function(selected)
+        targetPlayer = Players:FindFirstChild(selected)
+    end
+})
+
+-- ปุ่ม Refresh
+FollowTab:CreateButton({
+    Name="รีเฟรชผู้เล่น",
+    Callback=function()
+        updatePlayerList()
+        targetDropdown:Refresh(playerList)
+    end
+})
+
+-- Toggle Follow
+FollowTab:CreateToggle({
+    Name="ติดตามผู้เล่น",
+    CurrentValue=false,
+    Callback=function(val)
+        if val then startFollowing() else stopAction() end
+    end
+})
+
+-- Toggle Banged
+FollowTab:CreateToggle({
+    Name="🎉 Banged",
+    CurrentValue=false,
+    Callback=function(val)
+        if val then startBanged() else stopAction() end
+    end
+})
+
+-- อัปเดตรายชื่อผู้เล่นอัตโนมัติ
+Players.PlayerAdded:Connect(function(plr)
+    if plr ~= player then
+        table.insert(playerList, plr.Name)
+        targetDropdown:Refresh(playerList)
+    end
+end)
+Players.PlayerRemoving:Connect(function(plr)
+    for i,name in ipairs(playerList) do
+        if name==plr.Name then table.remove(playerList,i) break end
+    end
+    targetDropdown:Refresh(playerList)
+end)
+
+
+-- ================= ESP Tab =================
+local ESPTab = Window:CreateTab({Name="ESP", Icon="visibility", ShowTitle=true})
+
+local espEnabled = false
+local showName = true
+local showDistance = true
+local showBox = true
+local textSize = 14
+
+local ESPs = {}
+local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("ESP_ScreenGui")
+if not screenGui then
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ESP_ScreenGui"
+    screenGui.IgnoreGuiInset = true
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+end
+local Camera = workspace.CurrentCamera
+
+local function createESP(plr)
+    if plr == player or ESPs[plr] then return end
+    local box = Instance.new("Frame")
+    box.Name = "ESP_Box_"..plr.Name
+    box.BackgroundTransparency = 1
+    box.AnchorPoint = Vector2.new(0,0)
+    box.Visible = false
+    box.ZIndex = 2
+    box.Parent = screenGui
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(0,255,0)
+    stroke.Parent = box
+
+    local label = Instance.new("TextLabel")
+    label.Name = "ESP_Label_"..plr.Name
+    label.Size = UDim2.new(0,200,0,20)
+    label.AnchorPoint = Vector2.new(0.5,1)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.TextStrokeTransparency = 0
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = textSize
+    label.Visible = false
+    label.ZIndex = 3
+    label.Parent = screenGui
+
+    ESPs[plr] = {Box=box, Stroke=stroke, Label=label}
+end
+
+local function removeESP(plr)
+    if ESPs[plr] then
+        if ESPs[plr].Box then ESPs[plr].Box:Destroy() end
+        if ESPs[plr].Label then ESPs[plr].Label:Destroy() end
+        ESPs[plr] = nil
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if not espEnabled then
+        for _, data in pairs(ESPs) do data.Box.Visible = false data.Label.Visible = false end
+        return
+    end
+    for plr, data in pairs(ESPs) do
+        local char = plr.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local head = char and char:FindFirstChild("Head")
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+        if hrp and head and humanoid and humanoid.Health>0 then
+            local headPos, vis1 = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
+            local legPos, vis2 = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
+            if vis1 and vis2 then
+                local height = math.abs(legPos.Y - headPos.Y)
+                local width = height * 0.45
+                local x = headPos.X - width/2
+                local y = headPos.Y
+                data.Box.Size = UDim2.new(0,width,0,height)
+                data.Box.Position = UDim2.new(0,x,0,y)
+                data.Box.Visible = showBox
+                local text = ""
+                if showName then text = text .. plr.Name end
+                if showDistance and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+                    if #text>0 then text = text.." " end
+                    text = text .. math.floor(dist).." เมตร"
+                end
+                data.Label.Text = text
+                data.Label.TextSize = textSize
+                data.Label.Position = UDim2.new(0, headPos.X, 0, headPos.Y-10)
+                data.Label.Visible = (text~="")
+            else
+                data.Box.Visible=false data.Label.Visible=false
+            end
+        else
+            data.Box.Visible=false data.Label.Visible=false
+        end
+    end
+end)
+
+Players.PlayerAdded:Connect(createESP)
+Players.PlayerRemoving:Connect(removeESP)
+for _, plr in pairs(Players:GetPlayers()) do
+    if plr ~= player then createESP(plr) end
+end
+
+-- UI
+ESPTab:CreateToggle({Name="เปิด ESP", CurrentValue=false, Callback=function(val) espEnabled=val end})
+ESPTab:CreateToggle({Name="แสดงชื่อ", CurrentValue=true, Callback=function(val) showName=val end})
+ESPTab:CreateToggle({Name="แสดงระยะ", CurrentValue=true, Callback=function(val) showDistance=val end})
+ESPTab:CreateToggle({Name="แสดงกรอบ", CurrentValue=true, Callback=function(val) showBox=val end})
+ESPTab:CreateSlider({Name="ขนาดข้อความ", Min=8, Max=40, Default=textSize, Increment=1, Suffix="px", Callback=function(val) textSize=val end})
+
+-- ================= Misc Tab =================
+local MiscTab = Window:CreateTab({Name="อื่นๆ", Icon="settings", ShowTitle=true})
+
+local Lighting = game:GetService("Lighting")
+
+-- เก็บค่าเดิม
+local OriginalLighting = {
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    Brightness = Lighting.Brightness,
+    FogStart = Lighting.FogStart,
+    FogEnd = Lighting.FogEnd,
+    GlobalShadows = Lighting.GlobalShadows
+}
+
+-- Toggle Boost FPS
+MiscTab:CreateToggle({
+    Name = "เพิ่มFPS",
+    CurrentValue=false,
+    Callback=function(state)
+        for _, v in pairs(workspace:GetDescendants()) do
+            pcall(function()
+                if state then
+                    if v:IsA("BasePart") then v.Material=Enum.Material.Plastic v.Reflectance=0 end
+                    if v:IsA("MeshPart") then v.Material=Enum.Material.Plastic end
+                    if v:IsA("Decal") or v:IsA("Texture") then v.Transparency=1 end
+                    if v:IsA("ParticleEmitter") then v.Enabled=false end
+                else
+                    local data = OriginalWorkspace[v]
+                    if data then
+                        if v:IsA("BasePart") or v:IsA("MeshPart") then
+                            v.Material=data.Material
+                            v.Reflectance=data.Reflectance
+                        end
+                        if v:IsA("Decal") or v:IsA("Texture") then
+                            v.Transparency=data.Transparency
+                        end
+                        if v:IsA("ParticleEmitter") then
+                            v.Enabled=data.Enabled
+                        end
+                    end
+                end
+            end)
+        end
+        Lighting.GlobalShadows = (state and false or OriginalLighting.GlobalShadows)
+    end
+})
+
+-- Toggle Remove Fog
+MiscTab:CreateToggle({
+    Name="ลบหมอก",
+    CurrentValue=false,
+    Callback=function(state)
+        if state then
+            Lighting.FogStart=0
+            Lighting.FogEnd=100000
+        else
+            Lighting.FogStart=OriginalLighting.FogStart
+            Lighting.FogEnd=OriginalLighting.FogEnd
+        end
+    end
+})
+
+-- Toggle Brighten Map
+MiscTab:CreateToggle({
+    Name="ปรับแสงสว่าง",
+    CurrentValue=false,
+    Callback=function(state)
+        if state then
+            Lighting.Ambient=Color3.fromRGB(255,255,255)
+            Lighting.OutdoorAmbient=Color3.fromRGB(255,255,255)
+            Lighting.Brightness=2
+        else
+            Lighting.Ambient=OriginalLighting.Ambient
+            Lighting.OutdoorAmbient=OriginalLighting.OutdoorAmbient
+            Lighting.Brightness=OriginalLighting.Brightness
+        end
+    end
+})
+
