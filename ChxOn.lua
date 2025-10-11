@@ -445,6 +445,7 @@ local LocalPlayer = Players.LocalPlayer
 -- ตัวแปรหลัก
 local targetPlayer = nil
 local followConnection, noclipConnection, activeAnimation, attachmentLoop
+local followSpeed = 0.2 -- 💨 ค่าความเร็วเริ่มต้น
 
 -- Animation IDs
 local animBangedR15 = "10714360343"
@@ -457,7 +458,6 @@ local function isR6Character(plr)
     return char:FindFirstChild("Torso") ~= nil
 end
 
-
 -- ฟังก์ชันหยุดทุกท่า
 local function stopAction()
     if followConnection then followConnection:Disconnect() followConnection = nil end
@@ -466,7 +466,7 @@ local function stopAction()
     if activeAnimation then activeAnimation:Stop() activeAnimation = nil end
 end
 
--- ฟังก์ชันเล่นอนิเมะ (รองรับ Animator ใหม่)
+-- ฟังก์ชันเล่นอนิเมะ
 local function playAnim(animId)
     local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
@@ -476,7 +476,7 @@ local function playAnim(animId)
         if animator then
             activeAnimation = animator:LoadAnimation(anim)
         else
-            activeAnimation = humanoid:LoadAnimation(anim) -- fallback
+            activeAnimation = humanoid:LoadAnimation(anim)
         end
         activeAnimation:Play()
     end
@@ -513,9 +513,7 @@ local function startBanged()
     end)
 end
 
-
-
--- ฟังก์ชัน Follow
+-- ฟังก์ชัน Follow (ใช้ความเร็วที่ปรับได้)
 local function startFollowing()
     if targetPlayer and targetPlayer.Character then
         followConnection = RunService.Heartbeat:Connect(function()
@@ -523,14 +521,15 @@ local function startFollowing()
                 local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                 local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if targetHRP and myHRP then
-                    myHRP.CFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0,0,1), 0.2)
+                    -- ใช้ followSpeed แทนค่าเดิม
+                    myHRP.CFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0,0,1), followSpeed)
                 end
             end
         end)
     end
 end
 
--- เก็บรายการผู้เล่นปัจจุบัน
+-- เก็บรายการผู้เล่น
 local playerList = {}
 local function updatePlayerList()
     playerList = {}
@@ -540,11 +539,9 @@ local function updatePlayerList()
         end
     end
 end
-
--- เรียกครั้งแรก
 updatePlayerList()
 
--- Dropdown สำหรับเลือกผู้เล่น
+-- Dropdown เลือกเป้าหมาย
 local targetDropdown = FollowTab:AddDropdown({
     Name = "Target Player",
     Default = playerList[1] or "None",
@@ -559,25 +556,23 @@ local targetDropdown = FollowTab:AddDropdown({
     end
 })
 
--- ปุ่ม Refresh ผู้เล่น
+-- ปุ่ม Refresh
 FollowTab:AddButton({
     Name = "Refresh Players",
     Callback = function()
         updatePlayerList()
-        -- อัปเดตรายการ Dropdown
         targetDropdown:Refresh(playerList)
         print("Players list refreshed")
     end
 })
 
--- อัปเดตรายชื่ออัตโนมัติเมื่อมีผู้เล่นเข้า/ออก
+-- อัปเดตรายชื่ออัตโนมัติ
 Players.PlayerAdded:Connect(function(plr)
     if plr ~= LocalPlayer then
         table.insert(playerList, plr.Name)
         targetDropdown:Refresh(playerList)
     end
 end)
-
 Players.PlayerRemoving:Connect(function(plr)
     for i, name in ipairs(playerList) do
         if name == plr.Name then
@@ -588,7 +583,21 @@ Players.PlayerRemoving:Connect(function(plr)
     targetDropdown:Refresh(playerList)
 end)
 
+-- 🔧 Slider ปรับความเร็วการ Follow
+FollowTab:AddSlider({
+    Name = "Follow Speed",
+    Min = 0.05,
+    Max = 1,
+    Default = followSpeed,
+    Color = Color3.fromRGB(255, 200, 50),
+    Increment = 0.05,
+    Callback = function(Value)
+        followSpeed = Value
+        print("Follow speed set to:", Value)
+    end
+})
 
+-- 🔘 ปุ่มเปิด/ปิดการทำงาน
 FollowTab:AddToggle({
     Name = "Follow Player",
     Default = false,
@@ -608,6 +617,7 @@ FollowTab:AddToggle({
         if Value then startBanged() else stopAction() end
     end
 })
+
 
 
 
