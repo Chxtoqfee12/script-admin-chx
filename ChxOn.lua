@@ -426,6 +426,169 @@ MainTab:AddToggle({
 
 
 
+-- ⚡ Invisible V2 (ใต้ดินซิงค์พร้อม Highlight)
+-- โดย ฟลุ๊ค ❤️
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- ตัวแปรหลัก
+local invisRunning = false
+local IsInvis = false
+local Character, InvisibleCharacter
+local bodyPos
+local invisDied
+local Depth = -30 -- ความลึกใต้ดิน (แก้ได้ผ่าน slider)
+local highlight
+local syncConnection
+
+-- ฟังก์ชันทำให้หายตัว (ย้ายร่างจริงลงใต้ดิน)
+local function TurnInvisible()
+	if invisRunning or IsInvis then return end
+	invisRunning = true
+
+	Character = LocalPlayer.Character
+	if not Character then invisRunning = false return end
+	Character.Archivable = true
+
+	-- สร้างร่างโคลน
+	InvisibleCharacter = Character:Clone()
+	InvisibleCharacter.Parent = workspace
+
+	for _, v in pairs(InvisibleCharacter:GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.Transparency = (v.Name == "HumanoidRootPart") and 1 or 0.4
+			v.CanCollide = true
+		end
+	end
+
+	-- หาร่างจริง
+	local root = Character:FindFirstChild("HumanoidRootPart")
+	local invisRoot = InvisibleCharacter:FindFirstChild("HumanoidRootPart")
+
+	if root and invisRoot then
+		-- ย้ายร่างจริงลงใต้ดิน
+		root.CFrame = invisRoot.CFrame * CFrame.new(0, Depth, 0)
+
+		-- สร้าง Highlight สีแดง
+		highlight = Instance.new("Highlight")
+		highlight.Parent = Character
+		highlight.FillColor = Color3.fromRGB(255, 0, 0)
+		highlight.OutlineColor = Color3.fromRGB(255, 50, 50)
+		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+
+		-- ร่างจริงจะไม่มีแรงโน้มถ่วง (เดินบนอากาศ)
+		for _, v in pairs(Character:GetDescendants()) do
+			if v:IsA("BasePart") then
+				v.Anchored = false
+				v.CanCollide = false
+			end
+		end
+		root.Anchored = false
+
+		-- ปิดการชนกันของร่างโคลน
+		for _, v in pairs(InvisibleCharacter:GetDescendants()) do
+			if v:IsA("BasePart") then
+				v.CanCollide = true
+			end
+		end
+
+		-- ซิงค์ตำแหน่งร่างจริงกับร่างโคลน
+		syncConnection = RunService.Heartbeat:Connect(function()
+			if not root or not invisRoot then return end
+			root.CFrame = invisRoot.CFrame * CFrame.new(0, Depth, 0)
+		end)
+	end
+
+	LocalPlayer.Character = InvisibleCharacter
+	IsInvis = true
+
+	-- กล้องตามร่างโคลน
+	local humanoid = InvisibleCharacter:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		workspace.CurrentCamera.CameraSubject = humanoid
+		invisDied = humanoid.Died:Connect(function()
+			TurnVisible()
+		end)
+	end
+
+	invisRunning = false
+end
+
+-- ฟังก์ชันกลับมามองเห็น
+function TurnVisible()
+	if not IsInvis then return end
+
+	if syncConnection then
+		syncConnection:Disconnect()
+		syncConnection = nil
+	end
+
+	if invisDied then
+		invisDied:Disconnect()
+		invisDied = nil
+	end
+
+	local player = LocalPlayer
+	local root = Character and Character:FindFirstChild("HumanoidRootPart")
+	local invisRoot = InvisibleCharacter and InvisibleCharacter:FindFirstChild("HumanoidRootPart")
+
+	-- ✅ ย้ายร่างจริงกลับขึ้นมาตำแหน่งเดียวกับร่างโคลน
+	if root and invisRoot then
+		root.CFrame = invisRoot.CFrame
+	end
+
+	-- ✅ ทำลายโคลนหลังจากย้ายแล้ว
+	if InvisibleCharacter then
+		InvisibleCharacter:Destroy()
+		InvisibleCharacter = nil
+	end
+
+	-- ลบ highlight
+	if highlight then
+		highlight:Destroy()
+		highlight = nil
+	end
+
+	player.Character = Character
+
+	if Character and Character:FindFirstChild("Humanoid") then
+		workspace.CurrentCamera.CameraSubject = Character:FindFirstChildOfClass("Humanoid")
+	end
+
+	IsInvis = false
+end
+
+
+-- 🌌 Toggle Invisible
+MainTab:AddToggle({
+	Name = "Invisible (ใต้ดิน)",
+	Default = false,
+	Flag = "InvisibleToggle2",
+	Callback = function(value)
+		if value then
+			local ok, err = pcall(TurnInvisible)
+			if not ok then warn(err) end
+		else
+			local ok, err = pcall(TurnVisible)
+			if not ok then warn(err) end
+		end
+	end
+})
+
+-- 🌡️ Slider ความลึก
+MainTab:AddSlider({
+	Name = "ความลึกใต้ดิน",
+	Min = -100,
+	Max = -1,
+	Default = -30,
+	Increment = 1,
+	Flag = "DepthSlider",
+	Callback = function(val)
+		Depth = val
+	end
+})
 
 
 
