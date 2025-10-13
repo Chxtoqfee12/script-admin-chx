@@ -1,5 +1,6 @@
 -- 🌈 Invisible + Noclip + Infinity Jump (กดค้างได้) + JumpBoost + SpeedBoost + Invisible 2 UI (ครบจบ)
--- โดย ฟลุ๊ค ❤️
+-- ⭐ แก้ไขบั๊ก Invisible 2 (ตัวละครลอยค้าง) และทำให้วาร์ปกลับสู่พื้นเหมือน Invisible 1
+-- ✅ NEW: เพิ่มการล็อค Speed/JumpBoost ให้คงที่ตาม Slider (ไม่ให้ตัวเกมเปลี่ยน)
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -25,6 +26,7 @@ local speedBoostValue = 16
 
 local noclipConnection = nil
 local characterAddedConnection = nil
+local boostSyncConnection = nil -- ⭐ NEW: Connection สำหรับการบังคับใช้ Boost
 
 -- ⭐ ตัวแปรสำหรับ Invisible 2
 local Depth = -30
@@ -34,7 +36,7 @@ local invis2Running = false
 
 -- ⭐ ตัวแปรสำหรับ Infinity Jump (ต่อเนื่อง)
 local infinityJumpConnection = nil
-local JUMP_COOLDOWN = 0.1 -- หน่วงเวลาการกระโดด (สามารถปรับได้)
+local JUMP_COOLDOWN = 0.1 
 
 
 -- =========================
@@ -50,9 +52,31 @@ local function ApplyBoosts()
 	end
 end
 
+-- ⭐ NEW: ฟังก์ชันบังคับใช้ Boost ตลอดเวลา
+local function StartBoostSync()
+    if boostSyncConnection then return end
+    
+    -- ใช้ Heartbeat เพื่อให้ทำงานอย่างต่อเนื่องทุกเฟรม
+    boostSyncConnection = RunService.Heartbeat:Connect(ApplyBoosts)
+end
+
+local function StopBoostSync()
+    if boostSyncConnection then
+        boostSyncConnection:Disconnect()
+        boostSyncConnection = nil
+    end
+    -- รีเซ็ตเป็นค่าเริ่มต้นของ Roblox
+    if player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.JumpPower = 50 
+            humanoid.WalkSpeed = 16
+        end
+    end
+end
+
 -- ฟังก์ชันที่ใช้ผูกเมื่อตัวละครใหม่ปรากฏ
 local function OnCharacterAdded(char)
-    -- ต้องรอให้ Humanoid ตายก่อน เพื่อให้แน่ใจว่าตัวละครพร้อม
     local humanoid = char:WaitForChild("Humanoid")
     if humanoid then
         humanoid.Died:Wait()
@@ -67,7 +91,6 @@ local function OnCharacterAdded(char)
         end
     end
     
-    -- ⭐ ตรวจสอบและเริ่ม Infinity Jump ใหม่ หากยังเปิดอยู่
     if infinityJump and not infinityJumpConnection then
         StartContinuousJump()
     end
@@ -113,7 +136,6 @@ end
 -- ฟังก์ชัน Invisible / Visible 1 (ลอยฟ้า)
 -- =========================
 local function TurnInvisible()
-    -- ⭐ ตรวจสอบและยกเลิก Invisible 2 ก่อน
     if IsInvis2 then TurnVisible2() end
     
 	if invisRunning or IsInvis then return end
@@ -253,7 +275,7 @@ local function TurnInvisible2()
 		for _, v in pairs(Character:GetDescendants()) do
 			if v:IsA("BasePart") then
 				v.Anchored = false
-				v.CanCollide = false
+				v.CanCollide = false -- ทำให้ร่างจริงมุดลงไปได้
 			end
 		end
 		root.Anchored = false
@@ -268,7 +290,6 @@ local function TurnInvisible2()
 	IsInvis2 = true
     ApplyBoosts() 
 
-    -- ⭐ บังคับโหลด Animation ใหม่บนร่างโคลน
     if InvisibleCharacter2:FindFirstChild("Animate") then
         InvisibleCharacter2.Animate.Disabled = true
         InvisibleCharacter2.Animate.Disabled = false
@@ -293,15 +314,27 @@ local function TurnVisible2()
 		syncConnection = nil
 	end
 
+    -- ต้องหา Humanoid ของร่างจริงก่อนจะเปลี่ยน player.Character
+    local actualHumanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    
 	if invisDied then
 		invisDied:Disconnect()
 		invisDied = nil
 	end
     
-    -- ⭐ บังคับโหลด Animation ใหม่บนร่างจริง
-    if Character and Character:FindFirstChild("Animate") then
-        Character.Animate.Disabled = true
-        Character.Animate.Disabled = false
+    -- ⭐ 1. เก็บ Animate script จากร่างโคลนก่อนทำลาย
+    local clonedAnimateScript = nil
+    if InvisibleCharacter2 and InvisibleCharacter2:FindFirstChild("Animate") then
+        clonedAnimateScript = InvisibleCharacter2.Animate:Clone()
+    end
+    
+    -- คืนค่า CanCollide ให้กับร่างจริง
+    if Character then
+        for _, v in pairs(Character:GetDescendants()) do
+			if v:IsA("BasePart") then
+				v.CanCollide = true
+			end
+		end
     end
 
     if noclipEnabled then
@@ -312,7 +345,8 @@ local function TurnVisible2()
 	local invisRoot = InvisibleCharacter2 and InvisibleCharacter2:FindFirstChild("HumanoidRootPart")
 
 	if root and invisRoot then
-		root.CFrame = invisRoot.CFrame
+		-- วาร์ปกลับสู่ตำแหน่งของร่างโคลนที่อยู่บนพื้นทันที
+		root.CFrame = invisRoot.CFrame 
 	end
 
 	if InvisibleCharacter2 then
@@ -326,31 +360,45 @@ local function TurnVisible2()
 	end
 
 	player.Character = Character
+    
+    -- ⭐ 2. จัดการ Animate Script ในร่างจริง
+    if Character and clonedAnimateScript then
+        -- ลบ Animate script เดิมของร่างจริง (ถ้ามี)
+        local existingAnimate = Character:FindFirstChild("Animate")
+        if existingAnimate then
+            existingAnimate:Destroy()
+        end
+        -- ใส่สคริปต์ที่โคลนกลับเข้าไป
+        clonedAnimateScript.Parent = Character
+    end
+    
+    -- ⭐ 3. บังคับเปลี่ยนสถานะ Humanoid ให้พร้อมเดิน (สำคัญมาก!)
+    if actualHumanoid then
+        -- ใช้ Running เพื่อบังคับเริ่มแอนิเมชันทันที
+        actualHumanoid:ChangeState(Enum.HumanoidStateType.Running)
+    end
+    
     ApplyBoosts()
 
-	if Character and Character:FindFirstChild("Humanoid") then
-		workspace.CurrentCamera.CameraSubject = Character:FindFirstChildOfClass("Humanoid")
+	if Character and actualHumanoid then
+		workspace.CurrentCamera.CameraSubject = actualHumanoid
 	end
 
 	IsInvis2 = false
 end
 
 -- =========================
--- ⭐ ฟังก์ชัน Infinity Jump (Continuous)
+-- ฟังก์ชัน Infinity Jump (Continuous)
 -- =========================
 local function StartContinuousJump()
     if infinityJumpConnection then return end
     
-    -- ใช้ RunService.Heartbeat เพื่อวนลูปทุกเฟรม
     infinityJumpConnection = RunService.Heartbeat:Connect(function()
-        -- ตรวจสอบว่า Infinity Jump เปิดอยู่, ผู้เล่นกำลังกด Space ค้าง, และมีตัวละคร
         if infinityJump and UserInputService:IsKeyDown(Enum.KeyCode.Space) and player.Character then
             local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
             
-            -- ตรวจสอบสถานะ Freefall (ลอยอยู่กลางอากาศ)
             if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Freefall then
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                -- task.wait(JUMP_COOLDOWN) -- การใช้ task.wait() ใน Heartbeat อาจทำให้ลูปช้าลง เราจะใช้แค่ ChangeState
             end
         end
     end)
@@ -392,7 +440,7 @@ Instance.new("UICorner", topbar).CornerRadius = UDim.new(0, 15)
 local title = Instance.new("TextLabel", topbar)
 title.Size = UDim2.new(0.7, 0, 1, 0)
 title.BackgroundTransparency = 1
-title.Text = "Basic Script"
+title.Text = "Invisible + Boosts"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 16
@@ -401,7 +449,7 @@ title.Position = UDim2.new(0.05, 0, 0, 0)
 
 local minimize = Instance.new("TextButton", topbar)
 minimize.Size = UDim2.new(0, 35, 0, 35)
-minimize.Position = UDim2.new(0.75, 0, 0, 0)
+minimize.Position = UDim2.new(0.88, 0, 0, 0) 
 minimize.Text = "🗕"
 minimize.Font = Enum.Font.GothamBold
 minimize.TextSize = 18
@@ -410,7 +458,7 @@ minimize.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 local close = Instance.new("TextButton", topbar)
 close.Size = UDim2.new(0, 35, 0, 35)
-close.Position = UDim2.new(0.88, 0, 0, 0)
+close.Position = UDim2.new(0.80, 0, 0, 0) 
 close.Text = "❌"
 close.Font = Enum.Font.GothamBold
 close.TextSize = 18
@@ -468,7 +516,7 @@ local depthSliderLabel, depthSliderBar, depthSliderThumb = createSlider("คว�
 
 
 -- =========================
--- ฟังก์ชัน UI / Logic (ผูกกับ Continuous Jump)
+-- ฟังก์ชัน UI / Logic 
 -- =========================
 toggleBtn.MouseButton1Click:Connect(function()
     if IsInvis then
@@ -507,9 +555,9 @@ infJumpBtn.MouseButton1Click:Connect(function()
 	infinityJump = not infinityJump
     
     if infinityJump then
-        StartContinuousJump() -- ⭐ เริ่มการกระโดดต่อเนื่อง
+        StartContinuousJump() 
     else
-        StopContinuousJump() -- ⭐ หยุดการกระโดดต่อเนื่อง
+        StopContinuousJump() 
     end
     
 	infJumpBtn.Text = infinityJump and "🟢 Infinity Jump: ON" or "🌟 Infinity Jump: OFF"
@@ -533,8 +581,13 @@ local function setupSlider(sliderLabel, sliderBar, sliderThumb, valueVar, maxVal
             speedBoostValue = math.floor(value)
         elseif valueVar == "Depth" then
             Depth = math.floor(value)
-            if IsInvis2 and Character and Character:FindFirstChild("HumanoidRootPart") then
-                 Character.HumanoidRootPart.CFrame = InvisibleCharacter2.HumanoidRootPart.CFrame * CFrame.new(0, Depth, 0)
+            -- อัพเดทความลึกเมื่อเลื่อนสไลเดอร์
+            if IsInvis2 and InvisibleCharacter2 and Character then
+                 local root = Character:FindFirstChild("HumanoidRootPart")
+                 local invisRoot = InvisibleCharacter2:FindFirstChild("HumanoidRootPart")
+                 if root and invisRoot then
+                     root.CFrame = invisRoot.CFrame * CFrame.new(0, Depth, 0)
+                 end
             end
         end
 		
@@ -572,6 +625,7 @@ setupSlider(jumpSliderLabel, jumpSliderBar, jumpSliderThumb, "jumpBoostValue", 2
 setupSlider(speedSliderLabel, speedSliderBar, speedSliderThumb, "speedBoostValue", 100, 0, "SpeedBoost: ")
 setupSlider(depthSliderLabel, depthSliderBar, depthSliderThumb, "Depth", -1, -100, "ความลึกใต้ดิน: ")
 
+-- ตั้งค่าเริ่มต้นของ Slider UI
 local jumpRatio = jumpBoostValue / 200
 jumpSliderThumb.Position = UDim2.new(jumpRatio, -5, 0, 0)
 jumpSliderLabel.Text = "JumpBoost: "..jumpBoostValue
@@ -587,16 +641,18 @@ depthSliderLabel.Text = "ความลึกใต้ดิน: "..Depth
 close.MouseButton1Click:Connect(function()
 	TurnVisible()
     TurnVisible2()
-    StopContinuousJump() -- ⭐ หยุดการกระโดดต่อเนื่องเมื่อปิด UI
+    StopContinuousJump() 
     
     if noclipConnection then
         noclipConnection:Disconnect()
         noclipConnection = nil
     end
     
+    StopBoostSync() -- ⭐ หยุดการบังคับใช้ Boosts
+	
 	jumpBoostValue = 0
 	speedBoostValue = 0
-	ApplyBoosts()
+	ApplyBoosts() 
 	
 	IsInvis = false
     IsInvis2 = false
@@ -612,15 +668,21 @@ local minimized = false
 minimize.MouseButton1Click:Connect(function()
 	minimized = not minimized
 	if minimized then
+        -- ย่อ: ซ่อนทุกอย่างยกเว้น Topbar และย่อขนาด main
 		for _, child in pairs(main:GetChildren()) do
 			if child ~= topbar then child.Visible = false end
 		end
 		TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, 300, 0, 40)}):Play()
 	else
-		for _, child in pairs(main:GetChildren()) do
-			child.Visible = true
-		end
+        -- ขยาย: ขยายขนาด main ก่อน
 		TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, 300, 0, 430)}):Play() 
+        
+        -- หน่วงเวลาเล็กน้อย (0.2 วิ) แล้วค่อยแสดง UI ส่วนอื่น
+        task.delay(0.2, function()
+            for _, child in pairs(main:GetChildren()) do
+                child.Visible = true
+            end
+        end)
 	end
 end)
 
@@ -681,4 +743,5 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
--- โค้ด Infinity Jump Logic เดิมถูกลบออกไปและใช้ StartContinuousJump/StopContinuousJump แทน
+-- ⭐ เริ่มบังคับใช้ Boost ทันที
+StartBoostSync()
