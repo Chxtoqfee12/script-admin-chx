@@ -626,7 +626,7 @@ FollowTab:CreateToggle({
 -- ESP Tab (ไม่พบปัญหาใหญ่)
 ------------------------------------------------------
 
-local espTab = Window:CreateTab("ESP", 6036617171) -- เปลี่ยน icon เป็น eye
+local espTab = Window:CreateTab("ESP", 4483362458) -- เปลี่ยน icon เป็น eye
 
 -- Variables
 local espEnabled = false
@@ -832,7 +832,7 @@ end
 
 
 -- ================= Misc Tab (แก้ไขแล้ว) =================
-local MiscTab = Window:CreateTab("Misc", 6036617171) -- แก้ไข: ใช้ข้อความตรง
+local MiscTab = Window:CreateTab("Misc", 4483362458) -- แก้ไข: ใช้ข้อความตรง
 local miscSection = MiscTab:CreateSection("เครื่องมือเสริม") -- แก้ไข: ใช้ข้อความตรง
 
 -- Boost FPS Toggle
