@@ -199,7 +199,7 @@ function ToggleFloat(state)
 end
 
 local floatToggle = Tab:CreateToggle({
-    Name = "Float Pad (ลอยอยู่เหนือพื้น)",
+    Name = "Float Pad",
     CurrentValue = false,
     Flag = "FloatPad",
     Callback = function(state)
@@ -809,11 +809,11 @@ end
 
 -- ================= Misc Tab (แก้ไขแล้ว) =================
 local MiscTab = Window:CreateTab("Misc", 4483362458) -- แก้ไข: ใช้ข้อความตรง
-local miscSection = MiscTab:CreateSection("เครื่องมือเสริม") -- แก้ไข: ใช้ข้อความตรง
+local miscSection = MiscTab:CreateSection("Player") -- แก้ไข: ใช้ข้อความตรง
 
 -- Boost FPS Toggle
 local boostFPSToggle = MiscTab:CreateToggle({
-    Name = "เร่ง FPS (ลบ Texture/Shadow)", -- แก้ไข: ใช้ข้อความตรง
+    Name = "Boost FPS", -- แก้ไข: ใช้ข้อความตรง
     CurrentValue = false,
     Callback = function(state)
         if state then
@@ -857,14 +857,14 @@ local boostFPSToggle = MiscTab:CreateToggle({
                 end
             end
             Lighting.GlobalShadows = OriginalLighting.GlobalShadows
-            print("Boost FPS: OFF (ค่าเดิมถูกเรียกคืน)")
+            print("Boost FPS: OFF")
         end
     end
 })
 
 -- Remove Fog Toggle
 local removeFogToggle = MiscTab:CreateToggle({
-    Name = "ลบหมอก (Fog)", -- แก้ไข: ใช้ข้อความตรง
+    Name = "Remove Fog", -- แก้ไข: ใช้ข้อความตรง
     CurrentValue = false,
     Callback = function(state)
         if state then
@@ -874,14 +874,14 @@ local removeFogToggle = MiscTab:CreateToggle({
         else
             Lighting.FogStart = OriginalLighting.FogStart
             Lighting.FogEnd = OriginalLighting.FogEnd
-            print("Fog Removed: OFF (ค่าเดิมถูกเรียกคืน)")
+            print("Fog Removed: OFF")
         end
     end
 })
 
 -- Brighten Map Toggle
 local brightenMapToggle = MiscTab:CreateToggle({
-    Name = "ทำให้แผนที่สว่าง", -- แก้ไข: ใช้ข้อความตรง
+    Name = "Map Brightened", -- แก้ไข: ใช้ข้อความตรง
     CurrentValue = false,
     Callback = function(state)
         if state then
@@ -893,7 +893,7 @@ local brightenMapToggle = MiscTab:CreateToggle({
             Lighting.Ambient = OriginalLighting.Ambient
             Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient
             Lighting.Brightness = OriginalLighting.Brightness
-            print("Map Brightened: OFF (ค่าเดิมถูกเรียกคืน)")
+            print("Map Brightened: OFF")
         end
     end
 })
