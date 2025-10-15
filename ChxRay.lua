@@ -1,13 +1,23 @@
--- โหลดสคริปต์ AS ก่อนทุกอย่าง
-local success, err = pcall(function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/as", true))()
+-- ==========================
+-- โหลด AS script แบบหน่วง 3 วิ
+-- ==========================
+task.spawn(function()
+    task.wait(3) -- หน่วง 3 วิ
+    local success, err = pcall(function()
+        local ASCode = game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/as", true)
+        loadstring(ASCode)()
+    end)
+    if success then
+        print("✅ AS script loaded successfully after 3 seconds")
+    else
+        warn("❌ ไม่สามารถโหลด AS script ได้: "..tostring(err))
+    end
 end)
-if success then
-    print("AS script loaded successfully")
-else
-    warn("ไม่สามารถโหลด AS script ได้: "..tostring(err))
-end
 
+
+-- ==========================
+-- โหลด Rayfield Library
+-- ==========================
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/chxRay.lib'))()
 local player = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
@@ -15,7 +25,6 @@ local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local Camera = workspace.CurrentCamera
 
