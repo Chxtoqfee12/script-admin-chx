@@ -51,7 +51,7 @@ local Window = Rayfield:CreateWindow({
 -- Main Tab
 ------------------------------------------------------
 local Tab = Window:CreateTab("Main", 4483362458)
-local Section = Tab:CreateSection("Main")
+local MainSection = Tab:CreateSection("Player Control")
 
 -- WalkSpeed Slider
 local walkSlider = Tab:CreateSlider({
@@ -386,6 +386,7 @@ local invisibleToggle = Tab:CreateToggle({
 -- Follow Player Tab
 ------------------------------------------------------
 local FollowTab = Window:CreateTab("Follow Player", 4483362458) 
+local FollowSection = FollowTab:CreateSection("Follow")
 
 -- ตัวแปรหลัก
 local targetPlayer = nil
@@ -603,6 +604,7 @@ FollowTab:CreateToggle({
 ------------------------------------------------------
 
 local espTab = Window:CreateTab("ESP", 4483362458) -- เปลี่ยน icon เป็น eye
+local espSection = espTab:CreateSection("ESP Options")
 
 -- Variables
 local espEnabled = false
@@ -809,7 +811,7 @@ end
 
 -- ================= Misc Tab (แก้ไขแล้ว) =================
 local MiscTab = Window:CreateTab("Misc", 4483362458) -- แก้ไข: ใช้ข้อความตรง
-local miscSection = MiscTab:CreateSection("Player") -- แก้ไข: ใช้ข้อความตรง
+local MiscSection = MiscTab:CreateSection("Performance")
 
 -- Boost FPS Toggle
 local boostFPSToggle = MiscTab:CreateToggle({
