@@ -50,7 +50,7 @@ local Window = Rayfield:CreateWindow({
 ------------------------------------------------------
 -- Main Tab
 ------------------------------------------------------
-local Tab = Window:CreateTab("Main", 4483362458)
+local Tab = Window:CreateTab("Main", "home") -- เปลี่ยนจาก 4483362458 
 local MainSection = Tab:CreateSection("Player Control")
 
 -- WalkSpeed Slider
@@ -385,7 +385,7 @@ local invisibleToggle = Tab:CreateToggle({
 ------------------------------------------------------
 -- Follow Player Tab (Select Player + Refresh Button)
 ------------------------------------------------------
-local FollowTab = Window:CreateTab("Follow Player", 4483362458)
+local FollowTab = Window:CreateTab("Follow Player", "user") -- ใช้ไอคอนคน
 local FollowSection = FollowTab:CreateSection("Follow")
 
 local Players = game:GetService("Players")
@@ -437,7 +437,7 @@ local function setTargetPlayer(name)
     local found = Players:FindFirstChild(name)
     if found and found ~= LocalPlayer then
         targetPlayer = found
-        print("🎯 Target set to:", found.Name)
+        print("Target set to:", found.Name)
     else
         targetPlayer = nil
         warn("ไม่พบผู้เล่นชื่อดังกล่าว!")
@@ -448,7 +448,7 @@ end
 -- Dropdown: เลือกผู้เล่น
 ------------------------------------------------------
 local playerDropdown = FollowTab:CreateDropdown({
-    Name = "🎯 Select Target Player",
+    Name = "Select Target Player",
     Options = getPlayerList(),
     CurrentOption = {},
     Flag = "TargetPlayerSelect",
@@ -461,7 +461,7 @@ local playerDropdown = FollowTab:CreateDropdown({
 -- ปุ่ม Refresh รายชื่อผู้เล่น
 ------------------------------------------------------
 FollowTab:CreateButton({
-    Name = "🔄 Refresh Players",
+    Name = "Refresh Players",
     Callback = function()
         playerDropdown:Refresh(getPlayerList(), true)
         print("🔁 Player list refreshed!")
@@ -472,21 +472,24 @@ FollowTab:CreateButton({
 -- ฟังก์ชัน Follow / Banged / Suck
 ------------------------------------------------------
 
--- Follow
+-- ความเร็วเริ่มต้นของการ Follow
+local followSpeed = 0.2  -- ค่าปกติ 0.2
+
 local function startFollowing()
-    following = true
     if targetPlayer and targetPlayer.Character then
+        stopAction() -- ป้องกันไม่ให้ซ้ำซ้อน
         followConnection = RunService.Heartbeat:Connect(function()
-            local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if targetHRP and myHRP then
-                myHRP.CFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0,0,1), 0.1)
-            else
-                stopAction()
+            if LocalPlayer.Character and targetPlayer.Character then
+                local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+                if targetHRP and myHRP then
+                    -- ลอยเข้าใกล้แบบไม่หมุน ไม่สั่น
+                    local targetPos = targetHRP.CFrame * CFrame.new(0, 0, 1)
+                    myHRP.CFrame = myHRP.CFrame:Lerp(targetPos, followSpeed)
+                end
             end
         end)
-    else
-        warn("ไม่พบผู้เล่นเป้าหมาย")
     end
 end
 
@@ -564,8 +567,35 @@ end
 ------------------------------------------------------
 -- ปุ่ม / Toggle
 ------------------------------------------------------
+
 FollowTab:CreateToggle({
-    Name = "🚶 Follow Player",
+    Name = "Banged",
+    CurrentValue = false,
+    Flag = "BangedToggle",
+    Callback = function(Value)
+        if Value then
+            if targetPlayer then startBanged() else warn("กรุณาเลือก Target Player ก่อน") Rayfield:GetToggle("BangedToggle"):SetValue(false) end
+        else
+            stopAction()
+        end
+    end,
+})
+
+FollowTab:CreateToggle({
+    Name = "Suck",
+    CurrentValue = false,
+    Flag = "SuckToggle",
+    Callback = function(Value)
+        if Value then
+            if targetPlayer then startSuck() else warn("กรุณาเลือก Target Player ก่อน") Rayfield:GetToggle("SuckToggle"):SetValue(false) end
+        else
+            stopAction()
+        end
+    end,
+})
+
+FollowTab:CreateToggle({
+    Name = "Follow Player",
     CurrentValue = false,
     Flag = "FollowToggle",
     Callback = function(Value)
@@ -582,31 +612,20 @@ FollowTab:CreateToggle({
     end,
 })
 
-FollowTab:CreateToggle({
-    Name = "🎉 Banged",
-    CurrentValue = false,
-    Flag = "BangedToggle",
+-- Slider ปรับความเร็ว
+FollowTab:CreateSlider({
+    Name = "Follow Speed",
+    Range = {0.05, 1},
+    Increment = 0.05,
+    Suffix = "",
+    CurrentValue = followSpeed,
+    Flag = "FollowSpeedSlider",
     Callback = function(Value)
-        if Value then
-            if targetPlayer then startBanged() else warn("กรุณาเลือก Target Player ก่อน") Rayfield:GetToggle("BangedToggle"):SetValue(false) end
-        else
-            stopAction()
-        end
+        followSpeed = Value
+        print("Follow speed set to:", Value)
     end,
 })
 
-FollowTab:CreateToggle({
-    Name = "💨 Suck",
-    CurrentValue = false,
-    Flag = "SuckToggle",
-    Callback = function(Value)
-        if Value then
-            if targetPlayer then startSuck() else warn("กรุณาเลือก Target Player ก่อน") Rayfield:GetToggle("SuckToggle"):SetValue(false) end
-        else
-            stopAction()
-        end
-    end,
-})
 
 
 
@@ -614,7 +633,7 @@ FollowTab:CreateToggle({
 -- ESP Tab (ไม่พบปัญหาใหญ่)
 ------------------------------------------------------
 
-local espTab = Window:CreateTab("ESP", 4483362458) -- เปลี่ยน icon เป็น eye
+local espTab = Window:CreateTab("ESP", "eye") -- ใช้ไอคอนตา
 local espSection = espTab:CreateSection("ESP Options")
 
 -- Variables
@@ -821,7 +840,7 @@ end
 
 
 -- ================= Misc Tab (แก้ไขแล้ว) =================
-local MiscTab = Window:CreateTab("Misc", 4483362458) -- แก้ไข: ใช้ข้อความตรง
+local MiscTab = Window:CreateTab("Misc", "package")
 local MiscSection = MiscTab:CreateSection("Performance")
 
 -- Boost FPS Toggle
