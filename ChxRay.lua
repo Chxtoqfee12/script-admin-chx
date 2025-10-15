@@ -1,19 +1,3 @@
--- ==========================
--- โหลด AS script แบบหน่วง 3 วิ
--- ==========================
-task.spawn(function()
-    task.wait(3) -- หน่วง 3 วิ
-    local success, err = pcall(function()
-        local ASCode = game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/as", true)
-        loadstring(ASCode)()
-    end)
-    if success then
-        print("✅ AS script loaded successfully after 3 seconds")
-    else
-        warn("❌ ไม่สามารถโหลด AS script ได้: "..tostring(err))
-    end
-end)
-
 
 -- ==========================
 -- โหลด Rayfield Library
