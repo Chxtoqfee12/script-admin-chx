@@ -1,4 +1,4 @@
--- ================== โหลด UI หลังจากนั้น ==================
+
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/chxRay.lib'))()
 local player = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
