@@ -52,7 +52,7 @@ local Window = Rayfield:CreateWindow({
 ------------------------------------------------------
 -- Main Tab
 ------------------------------------------------------
-local Tab = Window:CreateTab("Main", "home") -- เปลี่ยนจาก 4483362458 
+local Tab = Window:CreateTab("Main", "home") 
 local MainSection = Tab:CreateSection("Player Control")
 
 -- WalkSpeed Slider
@@ -82,6 +82,20 @@ local jumpSlider = Tab:CreateSlider({
         if humanoid then humanoid.JumpPower = value end
     end
 })
+
+-- ฟังก์ชันล็อคค่า WalkSpeed + JumpPower
+task.spawn(function()
+    while task.wait(0.1) do
+        if humanoid then
+            if humanoid.WalkSpeed ~= currentValues.WalkSpeed then
+                humanoid.WalkSpeed = currentValues.WalkSpeed
+            end
+            if humanoid.JumpPower ~= currentValues.JumpPower then
+                humanoid.JumpPower = currentValues.JumpPower
+            end
+        end
+    end
+end)
 
 --gui fly
 local flyLoaded = false -- ตรวจสอบว่ามี GUI โหลดแล้วหรือยัง
