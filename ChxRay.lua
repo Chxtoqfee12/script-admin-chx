@@ -383,18 +383,22 @@ local invisibleToggle = Tab:CreateToggle({
 
 
 ------------------------------------------------------
--- Follow Player Tab
+-- Follow Player Tab (Select Player + Refresh Button)
 ------------------------------------------------------
-local FollowTab = Window:CreateTab("Follow Player", 4483362458) 
+local FollowTab = Window:CreateTab("Follow Player", 4483362458)
 local FollowSection = FollowTab:CreateSection("Follow")
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 -- ตัวแปรหลัก
 local targetPlayer = nil
 local following = false
 local followConnection = nil
-local noclipConnection = nil
-local activeAnimation = nil
 local attachmentLoop = nil
+local activeAnimation = nil
 
 -- Animation IDs
 local animBangedR15 = "10714360343"
@@ -409,194 +413,201 @@ local function isR6Character(plr)
     return char:FindFirstChild("Torso") ~= nil
 end
 
--- ฟังก์ชัน Noclip (ปรับใช้กับ currentValues.Noclip)
-local function setNoclip(state)
-    currentValues.Noclip = state
-    -- การจัดการ Noclip จริงอยู่ใน RunService.Stepped loop ของ Main Tab แล้ว
-    -- ไม่ต้องสร้าง noclipConnection ซ้ำ
-end
-
 -- ฟังก์ชันหยุดทุกท่า
 local function stopAction()
     following = false
     if followConnection then followConnection:Disconnect() followConnection = nil end
-    -- ไม่ต้องจัดการ Noclip ที่นี่ ให้ผู้ใช้จัดการเองที่ Main Tab
-
     if attachmentLoop then attachmentLoop:Disconnect() attachmentLoop = nil end
     if activeAnimation then activeAnimation:Stop() activeAnimation = nil end
 end
 
--- ฟังก์ชัน Banged
+-- ฟังก์ชันโหลดรายชื่อผู้เล่น
+local function getPlayerList()
+    local list = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            table.insert(list, plr.Name)
+        end
+    end
+    return list
+end
+
+-- ฟังก์ชันตั้งเป้าหมาย
+local function setTargetPlayer(name)
+    local found = Players:FindFirstChild(name)
+    if found and found ~= LocalPlayer then
+        targetPlayer = found
+        print("🎯 Target set to:", found.Name)
+    else
+        targetPlayer = nil
+        warn("ไม่พบผู้เล่นชื่อดังกล่าว!")
+    end
+end
+
+------------------------------------------------------
+-- Dropdown: เลือกผู้เล่น
+------------------------------------------------------
+local playerDropdown = FollowTab:CreateDropdown({
+    Name = "🎯 Select Target Player",
+    Options = getPlayerList(),
+    CurrentOption = {},
+    Flag = "TargetPlayerSelect",
+    Callback = function(Option)
+        setTargetPlayer(Option[1])
+    end,
+})
+
+------------------------------------------------------
+-- ปุ่ม Refresh รายชื่อผู้เล่น
+------------------------------------------------------
+FollowTab:CreateButton({
+    Name = "🔄 Refresh Players",
+    Callback = function()
+        playerDropdown:Refresh(getPlayerList(), true)
+        print("🔁 Player list refreshed!")
+    end,
+})
+
+------------------------------------------------------
+-- ฟังก์ชัน Follow / Banged / Suck
+------------------------------------------------------
+
+-- Follow
+local function startFollowing()
+    following = true
+    if targetPlayer and targetPlayer.Character then
+        followConnection = RunService.Heartbeat:Connect(function()
+            local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if targetHRP and myHRP then
+                myHRP.CFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0,0,1), 0.1)
+            else
+                stopAction()
+            end
+        end)
+    else
+        warn("ไม่พบผู้เล่นเป้าหมาย")
+    end
+end
+
+-- Banged
+-- ฟังก์ชัน Banged (เข้า-ออก)
 local function startBanged()
     if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then 
         warn("Target หรือ Character ไม่พร้อมใช้งาน")
         return 
     end
-    stopAction() -- หยุดท่าอื่น
+
+    stopAction() -- หยุดท่าอื่นก่อนเริ่มใหม่
+
     local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
         local anim = Instance.new("Animation")
-        anim.AnimationId = "rbxassetid://"..(isR6Character(LocalPlayer) and animBangedR6 or animBangedR15)
+        anim.AnimationId = "rbxassetid://" .. (isR6Character(LocalPlayer) and animBangedR6 or animBangedR15)
         activeAnimation = humanoid:LoadAnimation(anim)
         activeAnimation:Play()
     end
 
-    -- ลูปเคลื่อนที่ใกล้เป้า
+    -- ลูปขยับเข้าออก
     task.spawn(function()
         local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        while activeAnimation and targetPlayer.Character and myHRP and myHRP.Parent do
+        while activeAnimation and myHRP and targetPlayer and targetPlayer.Character do
             local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if targetHRP then
-                local fwd, bwd
-                -- ปรับระยะห่างให้เหมาะสมกับ Rig
-                if isR6Character(LocalPlayer) then
-                    fwd = targetHRP.CFrame * CFrame.new(0,0,-2.5)
-                    bwd = targetHRP.CFrame * CFrame.new(0,0,-1.3)
-                else
-                    fwd = targetHRP.CFrame * CFrame.new(0,0,-1.5)
-                    bwd = targetHRP.CFrame * CFrame.new(0,0,-1.1)
-                end
-                
-                TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=fwd}):Play()
-                task.wait(0.15)
-                
-                -- ตรวจสอบว่ายังทำงานอยู่ก่อนทำต่อ
-                if not activeAnimation then break end 
-                TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=bwd}):Play()
-                task.wait(0.15)
+            if not targetHRP then stopAction() break end
+
+            -- ตำแหน่งข้างหน้าและถอยหลังตาม Rig
+            local forward, backward
+            if isR6Character(LocalPlayer) then
+                forward = targetHRP.CFrame * CFrame.new(0, 0, -2.3)
+                backward = targetHRP.CFrame * CFrame.new(0, 0, -1.2)
             else
-                stopAction()
-                break
+                forward = targetHRP.CFrame * CFrame.new(0, 0, -1.6)
+                backward = targetHRP.CFrame * CFrame.new(0, 0, -1.1)
             end
+
+            -- เคลื่อนไหวไปข้างหน้า
+            TweenService:Create(myHRP, TweenInfo.new(0.12, Enum.EasingStyle.Linear), {CFrame = forward}):Play()
+            task.wait(0.12)
+
+            if not activeAnimation then break end
+
+            -- ถอยกลับ
+            TweenService:Create(myHRP, TweenInfo.new(0.12, Enum.EasingStyle.Linear), {CFrame = backward}):Play()
+            task.wait(0.12)
         end
     end)
 end
 
--- ฟังก์ชัน Suck
+
+-- Suck
 local function startSuck()
-    if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then 
-        warn("Target หรือ Character ไม่พร้อมใช้งาน")
-        return 
-    end
-    stopAction() -- หยุดท่าอื่น
+    if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then return end
+    stopAction()
     local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    local targetTorso = targetPlayer.Character:FindFirstChild("LowerTorso") or targetPlayer.Character:FindFirstChild("UpperTorso") or targetPlayer.Character:FindFirstChild("Torso")
-    
-    if humanoid then
-        local anim = Instance.new("Animation")
-        anim.AnimationId = "rbxassetid://"..(isR6Character(LocalPlayer) and animSuckR6 or animSuckR15)
-        activeAnimation = humanoid:LoadAnimation(anim)
-        activeAnimation:Play()
-    end
-    
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://" .. (isR6Character(LocalPlayer) and animSuckR6 or animSuckR15)
+    activeAnimation = humanoid:LoadAnimation(anim)
+    activeAnimation:Play()
+
     attachmentLoop = RunService.Heartbeat:Connect(function()
-        if targetTorso and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
-            -- ปรับระยะห่างสำหรับท่า Suck
-            LocalPlayer.Character.PrimaryPart.CFrame = targetTorso.CFrame * CFrame.new(0,-2.3,-1) * CFrame.Angles(0,math.pi,0)
+        if targetPlayer.Character and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+            local torso = targetPlayer.Character:FindFirstChild("LowerTorso") or targetPlayer.Character:FindFirstChild("Torso")
+            if torso then
+                LocalPlayer.Character.PrimaryPart.CFrame = torso.CFrame * CFrame.new(0, -2.3, -1) * CFrame.Angles(0, math.pi, 0)
+            end
         else
             stopAction()
         end
     end)
 end
 
--- ฟังก์ชัน Follow
-local function startFollowing()
-    following = true
-    if targetPlayer and targetPlayer.Character then
-        followConnection = RunService.Heartbeat:Connect(function()
-            if LocalPlayer.Character and targetPlayer.Character then
-                local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-                local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if targetHRP and myHRP then
-                    -- Lerp เพื่อให้การเคลื่อนไหวดูนุ่มนวล
-                    local newCFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0,0,1), 0.1)
-                    myHRP.CFrame = newCFrame
-                end
-            end
-        end)
-    else
-        following = false
-        warn("ไม่พบผู้เล่นเป้าหมายสำหรับ Follow")
-    end
-end
-
--- ใช้ CreateInput แทน TextBox
-FollowTab:CreateInput({
-    Name = "Target Player",
-    PlaceholderText = "พิมพ์ชื่อผู้เล่น...",
-    RemoveTextAfterFocusLost = false,
-    Type = "Text",
-    Callback = function(text)
-        local found = nil
-        for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
-            if plr.Name:lower() == text:lower() and plr ~= game.Players.LocalPlayer then
-                found = plr
-                break
-            end
-        end
-        targetPlayer = found
-        if targetPlayer then
-            print("Target set to: "..targetPlayer.Name)
-        else
-            print("Player not found!")
-        end
-    end,
-})
-
--- Toggle Follow
+------------------------------------------------------
+-- ปุ่ม / Toggle
+------------------------------------------------------
 FollowTab:CreateToggle({
-    Name = "Follow Player",
+    Name = "🚶 Follow Player",
     CurrentValue = false,
     Flag = "FollowToggle",
     Callback = function(Value)
         if Value then
-            -- แนะนำให้เปิด Noclip ใน Main Tab ก่อน
-            startFollowing()
+            if targetPlayer then
+                startFollowing()
+            else
+                warn("กรุณาเลือก Target Player ก่อน")
+                Rayfield:GetToggle("FollowToggle"):SetValue(false)
+            end
         else
             stopAction()
         end
     end,
 })
 
--- Toggle Banged
 FollowTab:CreateToggle({
     Name = "🎉 Banged",
     CurrentValue = false,
     Flag = "BangedToggle",
     Callback = function(Value)
-        if targetPlayer and targetPlayer.Character then
-            if Value then 
-                startBanged() 
-            else 
-                stopAction() 
-            end
+        if Value then
+            if targetPlayer then startBanged() else warn("กรุณาเลือก Target Player ก่อน") Rayfield:GetToggle("BangedToggle"):SetValue(false) end
         else
-            showNotification("กรุณาตั้งค่า Target Player ก่อน")
-            -- ปิด Toggle ถ้าไม่มี Target
-            if Value then task.wait(0.1) Rayfield:GetToggle("BangedToggle"):SetValue(false) end 
+            stopAction()
         end
     end,
 })
 
--- Toggle suck
 FollowTab:CreateToggle({
-    Name = "🎉 Suck",
+    Name = "💨 Suck",
     CurrentValue = false,
-    Flag = "SuckkToggle",
+    Flag = "SuckToggle",
     Callback = function(Value)
-        if targetPlayer and targetPlayer.Character then
-            if Value then 
-                startSuck() 
-            else 
-                stopAction() 
-            end
+        if Value then
+            if targetPlayer then startSuck() else warn("กรุณาเลือก Target Player ก่อน") Rayfield:GetToggle("SuckToggle"):SetValue(false) end
         else
-            showNotification("กรุณาตั้งค่า Target Player ก่อน")
-            -- ปิด Toggle ถ้าไม่มี Target
-            if Value then task.wait(0.1) Rayfield:GetToggle("SuckkToggle"):SetValue(false) end
+            stopAction()
         end
     end,
 })
+
 
 
 ------------------------------------------------------
