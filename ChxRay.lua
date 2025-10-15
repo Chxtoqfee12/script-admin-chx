@@ -3,7 +3,12 @@ local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxt
 local player = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
 
 local currentValues = {
     WalkSpeed = 16,
@@ -11,7 +16,6 @@ local currentValues = {
     FlySpeed = 50,
     Noclip = false,
     InfinityJump = false,
-    Float = false,
 }
 
 local humanoid, hrp, character
@@ -27,6 +31,13 @@ end
 setupCharacter(player.Character or player.CharacterAdded:Wait())
 player.CharacterAdded:Connect(setupCharacter)
 
+-- ฟังก์ชันแจ้งเตือน (เนื่องจาก showNotification หายไป)
+local function showNotification(text)
+    print("Notification: "..text)
+    -- หากต้องการแจ้งเตือนจริง ต้องมีโค้ด UI ของ Rayfield หรือ Library อื่นๆ
+    -- สำหรับตอนนี้ใช้ print แทน
+end
+
 -- Window
 local Window = Rayfield:CreateWindow({
     Name = "Chx Script",
@@ -36,7 +47,9 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = {Enabled=false}
 })
 
-
+------------------------------------------------------
+-- Main Tab
+------------------------------------------------------
 local Tab = Window:CreateTab("Main", 4483362458)
 local Section = Tab:CreateSection("Main")
 
@@ -88,10 +101,14 @@ Tab:CreateToggle({
                     return
                 end
 
-                -- รอให้ GUI ปรากฏ
-                flyGui = player:WaitForChild("PlayerGui"):WaitForChild("main")
-                flyGui.Enabled = true
-                flyLoaded = true
+                -- รอให้ GUI ปรากฏ (ถ้าชื่อ GUI เป็น 'main')
+                flyGui = player:WaitForChild("PlayerGui"):WaitForChild("main", 5) -- รอ 5 วิ
+                if flyGui then
+                    flyGui.Enabled = true
+                    flyLoaded = true
+                else
+                    warn("Fly GUI (main) ไม่ปรากฏหลังจากโหลด")
+                end
             else
                 -- ถ้าโหลดแล้ว แค่เปิด GUI
                 if flyGui then
@@ -118,6 +135,8 @@ local noclipToggle = Tab:CreateToggle({
     end
 })
 
+
+
 ------------------------------------------------------
 
 -- Infinity Jump
@@ -137,8 +156,59 @@ UIS.JumpRequest:Connect(function()
 end)
 
 ------------------------------------------------------
--- Float (Q/E Hold)
+-- Float (Q/E Hold) Logic
 ------------------------------------------------------
+-- 🌈 ฟังก์ชัน Float (ลอยอยู่เหนือพื้น)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local floatPart = nil
+local floatEnabled = false
+
+function ToggleFloat(state)
+    floatEnabled = state
+    if state then
+        if not floatPart then
+            floatPart = Instance.new("Part")
+            floatPart.Anchored = true
+            floatPart.CanCollide = true
+            floatPart.Size = Vector3.new(6, 1, 6)
+            floatPart.Transparency = 0.3
+            floatPart.Material = Enum.Material.Neon
+            floatPart.Color = Color3.fromRGB(0, 255, 200)
+            floatPart.Parent = workspace
+        end
+
+        -- อัปเดตตำแหน่งใต้เท้า
+        task.spawn(function()
+            while floatEnabled and floatPart do
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    local hrp = char.HumanoidRootPart
+                    floatPart.Position = hrp.Position - Vector3.new(0, 3.5, 0)
+                end
+                task.wait(0.02)
+            end
+        end)
+    else
+        if floatPart then
+            floatPart:Destroy()
+            floatPart = nil
+        end
+    end
+end
+
+local floatToggle = Tab:CreateToggle({
+    Name = "Float Pad (ลอยอยู่เหนือพื้น)",
+    CurrentValue = false,
+    Flag = "FloatPad",
+    Callback = function(state)
+        ToggleFloat(state)
+    end
+})
+
+
+
 
 ------------------------------------------------------
 -- Noclip Logic
@@ -153,14 +223,10 @@ RunService.Stepped:Connect(function()
     end
 end)
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
 ------------------------------------------------------
---invisible--
+-- Invisible Toggle & Logic (ไม่พบปัญหาใหญ่ แต่ปรับปรุงเล็กน้อย)
 ------------------------------------------------------
 
--- ================= Invisible Toggle =================
 local invisRunning = false
 local IsInvis = false
 local Character, InvisibleCharacter
@@ -168,6 +234,7 @@ local bodyPos
 local invisDied
 
 local function TurnInvisible()
+    -- ... (ฟังก์ชันเดิมของคุณ)
     if invisRunning or IsInvis then return end
     invisRunning = true
 
@@ -177,6 +244,7 @@ local function TurnInvisible()
 
     -- Clone ตัวละคร
     InvisibleCharacter = Character:Clone()
+    InvisibleCharacter.Name = "InvisibleClone"
     InvisibleCharacter.Parent = workspace
 
     -- ปรับความโปร่งใส
@@ -187,6 +255,8 @@ local function TurnInvisible()
             else
                 v.Transparency = 0.5
             end
+            -- ปิด CanCollide ของตัวโคลนเพื่อไม่ให้เกิดบั๊ก
+            v.CanCollide = false
         end
     end
 
@@ -212,19 +282,25 @@ local function TurnInvisible()
     end
 
     -- ปิด/เปิด Animate ให้รีเฟรช
-    InvisibleCharacter:FindFirstChild("Animate").Disabled = true
-    InvisibleCharacter:FindFirstChild("Animate").Disabled = false
+    local animate = InvisibleCharacter:FindFirstChild("Animate")
+    if animate then
+        animate.Disabled = true
+        animate.Disabled = false
+    end
 
     -- ตรวจจับถ้าตาย
-    invisDied = humanoid.Died:Connect(function()
-        TurnVisible()
-    end)
+    if humanoid then
+        invisDied = humanoid.Died:Connect(function()
+            TurnVisible()
+        end)
+    end
 
     invisRunning = false
     print("Invisible: ON")
 end
 
 function TurnVisible()
+    -- ... (ฟังก์ชันเดิมของคุณ)
     if not IsInvis then return end
 
     -- เก็บตำแหน่งปัจจุบันของโคลน
@@ -244,7 +320,10 @@ function TurnVisible()
         if CF and Character:FindFirstChild("HumanoidRootPart") then
             Character.HumanoidRootPart.CFrame = CF
         end
-        workspace.CurrentCamera.CameraSubject = Character:FindFirstChildOfClass("Humanoid")
+        local realHumanoid = Character:FindFirstChildOfClass("Humanoid")
+        if realHumanoid then
+            workspace.CurrentCamera.CameraSubject = realHumanoid
+        end
     end
 
     -- ลบ BodyPosition
@@ -254,7 +333,7 @@ function TurnVisible()
     end
 
     -- รีเฟรช Animate
-    if Character:FindFirstChild("Animate") then
+    if Character and Character:FindFirstChild("Animate") then
         Character.Animate.Disabled = true
         Character.Animate.Disabled = false
     end
@@ -299,7 +378,6 @@ local invisibleToggle = Tab:CreateToggle({
 })
 
 
-
 ------------------------------------------------------
 -- Reset Button
 ------------------------------------------------------
@@ -322,27 +400,16 @@ Tab:CreateButton({
         jumpSlider:SetValue(50)
         noclipToggle:SetValue(false)
         infinityToggle:SetValue(false)
-        floatToggle:SetValue(false)
+        floatToggle:SetValue(false) -- Reset Float Toggle
 
         disableFloat()
     end
 })
 
-
-
-
-
-
-
-
-
-local Tab = Window:CreateTab("Follow Player", 4483362458) -- 4483362458 เป็นไอคอนสมมติ
-
--- Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local LocalPlayer = Players.LocalPlayer
+------------------------------------------------------
+-- Follow Player Tab
+------------------------------------------------------
+local FollowTab = Window:CreateTab("Follow Player", 4483362458) 
 
 -- ตัวแปรหลัก
 local targetPlayer = nil
@@ -365,40 +432,31 @@ local function isR6Character(plr)
     return char:FindFirstChild("Torso") ~= nil
 end
 
--- ฟังก์ชัน Noclip
+-- ฟังก์ชัน Noclip (ปรับใช้กับ currentValues.Noclip)
 local function setNoclip(state)
-    if state then
-        noclipConnection = RunService.Stepped:Connect(function()
-            if LocalPlayer.Character then
-                for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end)
-    else
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-    end
+    currentValues.Noclip = state
+    -- การจัดการ Noclip จริงอยู่ใน RunService.Stepped loop ของ Main Tab แล้ว
+    -- ไม่ต้องสร้าง noclipConnection ซ้ำ
 end
 
 -- ฟังก์ชันหยุดทุกท่า
 local function stopAction()
     following = false
     if followConnection then followConnection:Disconnect() followConnection = nil end
-    if noclipConnection then noclipConnection:Disconnect() noclipConnection = nil end
+    -- ไม่ต้องจัดการ Noclip ที่นี่ ให้ผู้ใช้จัดการเองที่ Main Tab
+
     if attachmentLoop then attachmentLoop:Disconnect() attachmentLoop = nil end
     if activeAnimation then activeAnimation:Stop() activeAnimation = nil end
 end
 
 -- ฟังก์ชัน Banged
 local function startBanged()
-    if not targetPlayer or not targetPlayer.Character then return end
-    stopAction()
-    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then 
+        warn("Target หรือ Character ไม่พร้อมใช้งาน")
+        return 
+    end
+    stopAction() -- หยุดท่าอื่น
+    local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
         local anim = Instance.new("Animation")
         anim.AnimationId = "rbxassetid://"..(isR6Character(LocalPlayer) and animBangedR6 or animBangedR15)
@@ -406,13 +464,14 @@ local function startBanged()
         activeAnimation:Play()
     end
 
-    -- ลูปเคลื่อนที่ใกล้เป้าเหมือน R6/R15 script
+    -- ลูปเคลื่อนที่ใกล้เป้า
     task.spawn(function()
-        while activeAnimation and targetPlayer.Character do
+        local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        while activeAnimation and targetPlayer.Character and myHRP and myHRP.Parent do
             local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if targetHRP and myHRP then
+            if targetHRP then
                 local fwd, bwd
+                -- ปรับระยะห่างให้เหมาะสมกับ Rig
                 if isR6Character(LocalPlayer) then
                     fwd = targetHRP.CFrame * CFrame.new(0,0,-2.5)
                     bwd = targetHRP.CFrame * CFrame.new(0,0,-1.3)
@@ -420,8 +479,12 @@ local function startBanged()
                     fwd = targetHRP.CFrame * CFrame.new(0,0,-1.5)
                     bwd = targetHRP.CFrame * CFrame.new(0,0,-1.1)
                 end
+                
                 TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=fwd}):Play()
                 task.wait(0.15)
+                
+                -- ตรวจสอบว่ายังทำงานอยู่ก่อนทำต่อ
+                if not activeAnimation then break end 
                 TweenService:Create(myHRP, TweenInfo.new(0.15), {CFrame=bwd}):Play()
                 task.wait(0.15)
             else
@@ -434,18 +497,24 @@ end
 
 -- ฟังก์ชัน Suck
 local function startSuck()
-    if not targetPlayer or not targetPlayer.Character then return end
-    stopAction()
-    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    local targetTorso = targetPlayer.Character:FindFirstChild("LowerTorso") or targetPlayer.Character:FindFirstChild("UpperTorso")
+    if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then 
+        warn("Target หรือ Character ไม่พร้อมใช้งาน")
+        return 
+    end
+    stopAction() -- หยุดท่าอื่น
+    local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    local targetTorso = targetPlayer.Character:FindFirstChild("LowerTorso") or targetPlayer.Character:FindFirstChild("UpperTorso") or targetPlayer.Character:FindFirstChild("Torso")
+    
     if humanoid then
         local anim = Instance.new("Animation")
         anim.AnimationId = "rbxassetid://"..(isR6Character(LocalPlayer) and animSuckR6 or animSuckR15)
         activeAnimation = humanoid:LoadAnimation(anim)
         activeAnimation:Play()
     end
+    
     attachmentLoop = RunService.Heartbeat:Connect(function()
         if targetTorso and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+            -- ปรับระยะห่างสำหรับท่า Suck
             LocalPlayer.Character.PrimaryPart.CFrame = targetTorso.CFrame * CFrame.new(0,-2.3,-1) * CFrame.Angles(0,math.pi,0)
         else
             stopAction()
@@ -455,22 +524,27 @@ end
 
 -- ฟังก์ชัน Follow
 local function startFollowing()
+    following = true
     if targetPlayer and targetPlayer.Character then
         followConnection = RunService.Heartbeat:Connect(function()
             if LocalPlayer.Character and targetPlayer.Character then
                 local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                 local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if targetHRP and myHRP then
+                    -- Lerp เพื่อให้การเคลื่อนไหวดูนุ่มนวล
                     local newCFrame = myHRP.CFrame:Lerp(targetHRP.CFrame * CFrame.new(0,0,1), 0.1)
                     myHRP.CFrame = newCFrame
                 end
             end
         end)
+    else
+        following = false
+        warn("ไม่พบผู้เล่นเป้าหมายสำหรับ Follow")
     end
 end
 
 -- ใช้ CreateInput แทน TextBox
-Tab:CreateInput({
+FollowTab:CreateInput({
     Name = "Target Player",
     PlaceholderText = "พิมพ์ชื่อผู้เล่น...",
     RemoveTextAfterFocusLost = false,
@@ -493,13 +567,13 @@ Tab:CreateInput({
 })
 
 -- Toggle Follow
-Tab:CreateToggle({
+FollowTab:CreateToggle({
     Name = "Follow Player",
     CurrentValue = false,
     Flag = "FollowToggle",
     Callback = function(Value)
         if Value then
-            setNoclip(true)
+            -- แนะนำให้เปิด Noclip ใน Main Tab ก่อน
             startFollowing()
         else
             stopAction()
@@ -508,42 +582,51 @@ Tab:CreateToggle({
 })
 
 -- Toggle Banged
-Tab:CreateToggle({
+FollowTab:CreateToggle({
     Name = "🎉 Banged",
     CurrentValue = false,
     Flag = "BangedToggle",
     Callback = function(Value)
-        if Value then startBanged() else stopAction() end
+        if targetPlayer and targetPlayer.Character then
+            if Value then 
+                startBanged() 
+            else 
+                stopAction() 
+            end
+        else
+            showNotification("กรุณาตั้งค่า Target Player ก่อน")
+            -- ปิด Toggle ถ้าไม่มี Target
+            if Value then task.wait(0.1) Rayfield:GetToggle("BangedToggle"):SetValue(false) end 
+        end
     end,
 })
 
 -- Toggle suck
-Tab:CreateToggle({
+FollowTab:CreateToggle({
     Name = "🎉 Suck",
     CurrentValue = false,
     Flag = "SuckkToggle",
     Callback = function(Value)
-        if Value then startSuck() else stopAction() end
+        if targetPlayer and targetPlayer.Character then
+            if Value then 
+                startSuck() 
+            else 
+                stopAction() 
+            end
+        else
+            showNotification("กรุณาตั้งค่า Target Player ก่อน")
+            -- ปิด Toggle ถ้าไม่มี Target
+            if Value then task.wait(0.1) Rayfield:GetToggle("SuckkToggle"):SetValue(false) end
+        end
     end,
 })
 
 
+------------------------------------------------------
+-- ESP Tab (ไม่พบปัญหาใหญ่)
+------------------------------------------------------
 
-
-
-
-
-
-
-
-
-
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
-
-local espTab = Window:CreateTab("ESP", "eye")
+local espTab = Window:CreateTab("ESP", 6036617171) -- เปลี่ยน icon เป็น eye
 
 -- Variables
 local espEnabled = false
@@ -568,6 +651,11 @@ end
 local function createESP(plr)
     if plr == LocalPlayer then return end
     if ESPs[plr] then return end
+    
+    -- รอ Char ก่อน
+    if not plr.Character then 
+        plr.CharacterAdded:Wait() 
+    end
 
     -- กรอบ
     local boxFrame = Instance.new("Frame")
@@ -620,13 +708,20 @@ RunService.RenderStepped:Connect(function()
 
     for plr, data in pairs(ESPs) do
         local char = plr.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local head = char and char:FindFirstChild("Head")
-        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+        -- ตรวจสอบว่า Char ยังอยู่
+        if not char then 
+            data.Box.Visible = false
+            data.Label.Visible = false
+            continue 
+        end
+        
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local head = char:FindFirstChild("Head")
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
 
         if hrp and head and humanoid and humanoid.Health > 0 then
             local headPos, vis1 = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
-            local legPos, vis2 = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
+            local legPos, vis2 = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,2.5,0)) -- ปรับลดความสูงของกล่องเล็กน้อย
 
             if vis1 and vis2 then
                 -- คำนวณกล่อง
@@ -645,7 +740,7 @@ RunService.RenderStepped:Connect(function()
                 if showName then text = text..plr.Name end
                 if showDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local dist = (LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
-                    if #text > 0 then text = text.." " end
+                    if #text > 0 then text = text.." | " end
                     text = text..math.floor(dist).." Studs"
                 end
                 data.Label.Text = text
@@ -701,10 +796,9 @@ espTab:CreateSlider({
 })
 
 
-
--- Services
-local Lighting = game:GetService("Lighting")
-local Workspace = game:GetService("Workspace")
+------------------------------------------------------
+-- Misc Tab (แก้ไขบั๊กตัวแปรภาษา)
+------------------------------------------------------
 
 -- เก็บค่าเดิมของ Lighting
 local OriginalLighting = {
@@ -737,13 +831,13 @@ for _, obj in pairs(Workspace:GetDescendants()) do
 end
 
 
--- ================= Misc Tab =================
-local MiscTab = Window:CreateTab(LANG[language].miscTab, 4483362458)
-local miscSection = MiscTab:CreateSection(LANG[language].miscSection)
+-- ================= Misc Tab (แก้ไขแล้ว) =================
+local MiscTab = Window:CreateTab("Misc", 6036617171) -- แก้ไข: ใช้ข้อความตรง
+local miscSection = MiscTab:CreateSection("เครื่องมือเสริม") -- แก้ไข: ใช้ข้อความตรง
 
 -- Boost FPS Toggle
 local boostFPSToggle = MiscTab:CreateToggle({
-    Name = LANG[language].boostFPS,
+    Name = "เร่ง FPS (ลบ Texture/Shadow)", -- แก้ไข: ใช้ข้อความตรง
     CurrentValue = false,
     Callback = function(state)
         if state then
@@ -768,17 +862,22 @@ local boostFPSToggle = MiscTab:CreateToggle({
             end
             print("Boost FPS: ON")
         else
+            -- พยายามคืนค่าเดิมเท่าที่ทำได้
             for obj, data in pairs(OriginalWorkspace) do
-                if obj:IsA("BasePart") or obj:IsA("MeshPart") then
-                    obj.Material = data.Material
-                    obj.Reflectance = data.Reflectance
-                    if data.TextureID ~= nil then
-                        obj.TextureID = data.TextureID
+                if obj and obj.Parent then -- ตรวจสอบว่าวัตถุยังอยู่
+                    if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+                        obj.Material = data.Material
+                        obj.Reflectance = data.Reflectance
+                        if data.TextureID ~= nil then
+                            obj.TextureID = data.TextureID
+                        end
+                    elseif obj:IsA("Decal") or obj:IsA("Texture") then
+                        obj.Transparency = data.Transparency
+                    elseif obj:IsA("ParticleEmitter") then
+                        obj.Enabled = data.Enabled
                     end
-                elseif obj:IsA("Decal") or obj:IsA("Texture") then
-                    obj.Transparency = data.Transparency
-                elseif obj:IsA("ParticleEmitter") then
-                    obj.Enabled = data.Enabled
+                else
+                    OriginalWorkspace[obj] = nil -- ลบ reference ที่ตายแล้ว
                 end
             end
             Lighting.GlobalShadows = OriginalLighting.GlobalShadows
@@ -789,7 +888,7 @@ local boostFPSToggle = MiscTab:CreateToggle({
 
 -- Remove Fog Toggle
 local removeFogToggle = MiscTab:CreateToggle({
-    Name = LANG[language].removeFog,
+    Name = "ลบหมอก (Fog)", -- แก้ไข: ใช้ข้อความตรง
     CurrentValue = false,
     Callback = function(state)
         if state then
@@ -806,7 +905,7 @@ local removeFogToggle = MiscTab:CreateToggle({
 
 -- Brighten Map Toggle
 local brightenMapToggle = MiscTab:CreateToggle({
-    Name = LANG[language].brightenMap,
+    Name = "ทำให้แผนที่สว่าง", -- แก้ไข: ใช้ข้อความตรง
     CurrentValue = false,
     Callback = function(state)
         if state then
@@ -822,4 +921,3 @@ local brightenMapToggle = MiscTab:CreateToggle({
         end
     end
 })
-
