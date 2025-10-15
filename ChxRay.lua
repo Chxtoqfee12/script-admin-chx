@@ -448,7 +448,7 @@ end
 -- Dropdown: เลือกผู้เล่น
 ------------------------------------------------------
 local playerDropdown = FollowTab:CreateDropdown({
-    Name = "Select Target Player",
+    Name = "Select Player",
     Options = getPlayerList(),
     CurrentOption = {},
     Flag = "TargetPlayerSelect",
