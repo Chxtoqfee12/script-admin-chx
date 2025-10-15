@@ -1,3 +1,12 @@
+-- โหลดสคริปต์ AS ก่อนทุกอย่าง
+local success, err = pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/as", true))()
+end)
+if success then
+    print("AS script loaded successfully")
+else
+    warn("ไม่สามารถโหลด AS script ได้: "..tostring(err))
+end
 
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/chxRay.lib'))()
 local player = game.Players.LocalPlayer
