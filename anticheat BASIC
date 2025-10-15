@@ -1,5 +1,5 @@
 -- โหลดui
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/ChxRay.lua", true))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/ChxRay.lua"))()
 
 -- 2. Hook ฟังก์ชัน 'observeTag' เพื่อปิดการเฝ้าระวังของ AC
 local hk = false
@@ -88,6 +88,4 @@ for _, obj in next, getgc(true) do
         deepScan(obj)
     end
 end
-print("successfully")
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Next1x/Nextix./main/UniversalACBypass", true))()
 print("successfully")
