@@ -485,6 +485,95 @@ FollowTab:CreateButton({
 })
 
 ------------------------------------------------------
+-- Kick Player with P1000 Desync
+------------------------------------------------------
+FollowTab:CreateButton({
+    Name = "Kick Player (ติดตัว 1 วิ + ล่วงหน้า 5 stud)",
+    Callback = function()
+        if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then
+            warn("กรุณาเลือก Target Player ก่อน")
+            return
+        end
+
+        local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not myHRP or not targetHRP then return end
+
+        -- เก็บตำแหน่งเดิม
+        local originalCFrame = myHRP.CFrame
+
+        -- 🌟 เปิด P1000 แบบหมุนเต็ม
+        local PastedSources = true
+        local DesyncTypes = {}
+        local RunService = game:GetService("RunService")
+        local HeartbeatConnection
+
+        HeartbeatConnection = RunService.Heartbeat:Connect(function()
+            if PastedSources and myHRP then
+                -- เก็บตำแหน่งและความเร็วเดิม
+                DesyncTypes[1] = myHRP.CFrame
+                DesyncTypes[2] = myHRP.AssemblyLinearVelocity
+
+                -- หมุนสุ่มเต็ม 360 องศา
+                local SpoofCFrame = myHRP.CFrame
+                SpoofCFrame = SpoofCFrame * CFrame.Angles(
+                    math.rad(math.random(-180,180)),
+                    math.rad(math.random(-180,180)),
+                    math.rad(math.random(-180,180))
+                )
+
+                myHRP.CFrame = SpoofCFrame
+                myHRP.AssemblyLinearVelocity = Vector3.new(1,1,1) * 16384
+
+                RunService.RenderStepped:Wait()
+
+                myHRP.CFrame = DesyncTypes[1]
+                myHRP.AssemblyLinearVelocity = DesyncTypes[2]
+
+                -- 🌟 วาปไปหน้าผู้เล่นล่วงหน้า 5 stud
+                if targetHRP and targetHRP.Parent then
+                    local forwardOffset = targetHRP.CFrame.LookVector * 5
+                    myHRP.CFrame = targetHRP.CFrame + forwardOffset
+                end
+            end
+        end)
+
+        -- Hook CFrame
+        local oldIndex
+        oldIndex = hookmetamethod(game, "__index", newcclosure(function(self,key)
+            if PastedSources and not checkcaller() then
+                if key == "CFrame" and myHRP and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.Health > 0 then
+                    if self == myHRP then
+                        return DesyncTypes[1] or CFrame.new()
+                    elseif self == LocalPlayer.Character:FindFirstChild("Head") then
+                        return DesyncTypes[1] and DesyncTypes[1] + Vector3.new(0,myHRP.Size.Y/2 + 0.2,0) or CFrame.new()
+                    end
+                end
+            end
+            return oldIndex(self,key)
+        end))
+
+        -- 🌟 อยู่ติดตัวผู้เล่น 1 วินาที
+        task.wait(1)
+
+        -- 🌟 วาปกลับตำแหน่งเดิม
+        myHRP.CFrame = originalCFrame
+
+        -- 🌟 ปิด P1000 อัตโนมัติ
+        PastedSources = false
+        if HeartbeatConnection then
+            HeartbeatConnection:Disconnect()
+        end
+    end
+})
+
+
+
+
+
+
+
+------------------------------------------------------
 -- ฟังก์ชัน Follow / Banged / Suck
 ------------------------------------------------------
 
