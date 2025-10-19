@@ -488,7 +488,7 @@ FollowTab:CreateButton({
 -- Kick Player with P1000 Desync
 ------------------------------------------------------
 FollowTab:CreateButton({
-    Name = "Kick Player (ติดตัว 1 วิ + ล่วงหน้า 2 stud)",
+    Name = "Kick Player (ติดตัว 1 วิ + ล็อคกล้องจริง)",
     Callback = function()
         if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then
             warn("กรุณาเลือก Target Player ก่อน")
@@ -497,10 +497,16 @@ FollowTab:CreateButton({
 
         local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myHRP or not targetHRP then return end
+        local cam = workspace.CurrentCamera
+        if not myHRP or not targetHRP or not cam then return end
 
         -- เก็บตำแหน่งเดิม
         local originalCFrame = myHRP.CFrame
+
+        -- 🌟 ล็อคกล้อง
+        local originalCamCFrame = cam.CFrame
+        local originalCameraType = cam.CameraType
+        cam.CameraType = Enum.CameraType.Scriptable
 
         -- 🌟 เปิด P1000 แบบหมุนเต็ม
         local PastedSources = true
@@ -519,7 +525,6 @@ FollowTab:CreateButton({
                 SpoofCFrame = SpoofCFrame * CFrame.Angles(
                     math.rad(math.random(-180,180)),
                     math.rad(math.random(-180,180)),
-                    math.rad(math.random(-180,180)),
                     math.rad(math.random(-180,180))
                 )
 
@@ -536,6 +541,9 @@ FollowTab:CreateButton({
                     local forwardOffset = targetHRP.CFrame.LookVector * 2
                     myHRP.CFrame = targetHRP.CFrame + forwardOffset
                 end
+
+                -- 🌟 รีเซ็ตกล้องทุกเฟรม
+                cam.CFrame = originalCamCFrame
             end
         end)
 
@@ -560,6 +568,10 @@ FollowTab:CreateButton({
         -- 🌟 วาปกลับตำแหน่งเดิม
         myHRP.CFrame = originalCFrame
 
+        -- 🌟 คืนกล้องและ CameraType เดิม
+        cam.CameraType = originalCameraType
+        cam.CFrame = originalCamCFrame
+
         -- 🌟 ปิด P1000 อัตโนมัติ
         PastedSources = false
         if HeartbeatConnection then
@@ -567,7 +579,6 @@ FollowTab:CreateButton({
         end
     end
 })
-
 
 
 
