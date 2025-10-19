@@ -525,6 +525,8 @@ FollowTab:CreateButton({
                 SpoofCFrame = SpoofCFrame * CFrame.Angles(
                     math.rad(math.random(-180,180)),
                     math.rad(math.random(-180,180)),
+                    math.rad(math.random(-180,180)),
+                    math.rad(math.random(-180,180)),
                     math.rad(math.random(-180,180))
                 )
 
@@ -563,7 +565,7 @@ FollowTab:CreateButton({
         end))
 
         -- 🌟 อยู่ติดตัวผู้เล่น 1 วินาที
-        task.wait(1)
+        task.wait(0.5)
 
         -- 🌟 วาปกลับตำแหน่งเดิม
         myHRP.CFrame = originalCFrame
@@ -579,8 +581,6 @@ FollowTab:CreateButton({
         end
     end
 })
-
-
 
 
 
