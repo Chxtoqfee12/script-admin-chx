@@ -488,7 +488,7 @@ FollowTab:CreateButton({
 -- Kick Player with P1000 Desync
 ------------------------------------------------------
 FollowTab:CreateButton({
-    Name = "Kick Player (ติดตัว 1 วิ + ล็อคกล้องจริง)",
+    Name = "Kick Player",
     Callback = function()
         if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then
             warn("กรุณาเลือก Target Player ก่อน")
@@ -523,9 +523,9 @@ FollowTab:CreateButton({
                 -- หมุนสุ่มเต็ม 360 องศา
                 local SpoofCFrame = myHRP.CFrame
                 SpoofCFrame = SpoofCFrame * CFrame.Angles(
-                    math.rad(math.random(-180,180)),
-                    math.rad(math.random(-180,180)),
-                    math.rad(math.random(-180,180)),
+                    math.rad(math.random(-300,180)),
+                    math.rad(math.random(-300,180)),
+                    math.rad(math.random(-300,180)),
                     math.rad(math.random(-180,180)),
                     math.rad(math.random(-180,180))
                 )
