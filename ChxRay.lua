@@ -488,7 +488,7 @@ FollowTab:CreateButton({
 -- Kick Player with P1000 Desync
 ------------------------------------------------------
 FollowTab:CreateButton({
-    Name = "Kick Player (ติดตัว 1 วิ + ล่วงหน้า 5 stud)",
+    Name = "Kick Player (ติดตัว 1 วิ + ล่วงหน้า 2 stud)",
     Callback = function()
         if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then
             warn("กรุณาเลือก Target Player ก่อน")
@@ -519,6 +519,7 @@ FollowTab:CreateButton({
                 SpoofCFrame = SpoofCFrame * CFrame.Angles(
                     math.rad(math.random(-180,180)),
                     math.rad(math.random(-180,180)),
+                    math.rad(math.random(-180,180)),
                     math.rad(math.random(-180,180))
                 )
 
@@ -530,9 +531,9 @@ FollowTab:CreateButton({
                 myHRP.CFrame = DesyncTypes[1]
                 myHRP.AssemblyLinearVelocity = DesyncTypes[2]
 
-                -- 🌟 วาปไปหน้าผู้เล่นล่วงหน้า 5 stud
+                -- 🌟 วาปไปหน้าผู้เล่นล่วงหน้า 2 stud
                 if targetHRP and targetHRP.Parent then
-                    local forwardOffset = targetHRP.CFrame.LookVector * 5
+                    local forwardOffset = targetHRP.CFrame.LookVector * 2
                     myHRP.CFrame = targetHRP.CFrame + forwardOffset
                 end
             end
@@ -546,7 +547,7 @@ FollowTab:CreateButton({
                     if self == myHRP then
                         return DesyncTypes[1] or CFrame.new()
                     elseif self == LocalPlayer.Character:FindFirstChild("Head") then
-                        return DesyncTypes[1] and DesyncTypes[1] + Vector3.new(0,myHRP.Size.Y/2 + 0.2,0) or CFrame.new()
+                        return DesyncTypes[1] and DesyncTypes[1] + Vector3.new(0,myHRP.Size.Y/2 + 0.5,0) or CFrame.new()
                     end
                 end
             end
@@ -566,6 +567,7 @@ FollowTab:CreateButton({
         end
     end
 })
+
 
 
 
