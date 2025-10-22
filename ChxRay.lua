@@ -533,8 +533,7 @@ FollowTab:CreateButton({
 
         local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local cam = workspace.CurrentCamera
-        if not myHRP or not targetHRP or not cam then return end
+        if not myHRP or not targetHRP then return end
 
         -- เก็บตำแหน่งเดิม
         local originalCFrame = myHRP.CFrame
@@ -542,7 +541,6 @@ FollowTab:CreateButton({
         -- 🌟 เปิด P1000 แบบหมุนเต็ม
         local PastedSources = true
         local DesyncTypes = {}
-        local RunService = game:GetService("RunService")
         local HeartbeatConnection
 
         HeartbeatConnection = RunService.Heartbeat:Connect(function()
@@ -556,9 +554,7 @@ FollowTab:CreateButton({
                 SpoofCFrame = SpoofCFrame * CFrame.Angles(
                     math.rad(math.random(-300,180)),
                     math.rad(math.random(-300,180)),
-                    math.rad(math.random(-300,180)),
-                    math.rad(math.random(-180,180)),
-                    math.rad(math.random(-180,180))
+                    math.rad(math.random(-300,180))
                 )
 
                 myHRP.CFrame = SpoofCFrame
@@ -592,15 +588,11 @@ FollowTab:CreateButton({
             return oldIndex(self,key)
         end))
 
-        -- 🌟 อยู่ติดตัวผู้เล่น 1 วินาที
+        -- 🌟 อยู่ติดตัวผู้เล่น 0.5 วินาที
         task.wait(0.5)
 
         -- 🌟 วาปกลับตำแหน่งเดิม
         myHRP.CFrame = originalCFrame
-
-        -- 🌟 คืนกล้องและ CameraType เดิม
-        cam.CameraType = originalCameraType
-        cam.CFrame = originalCamCFrame
 
         -- 🌟 ปิด P1000 อัตโนมัติ
         PastedSources = false
@@ -609,6 +601,7 @@ FollowTab:CreateButton({
         end
     end
 })
+
 
 
 
