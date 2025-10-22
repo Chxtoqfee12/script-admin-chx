@@ -539,11 +539,6 @@ FollowTab:CreateButton({
         -- เก็บตำแหน่งเดิม
         local originalCFrame = myHRP.CFrame
 
-        -- 🌟 ล็อคกล้อง
-        local originalCamCFrame = cam.CFrame
-        local originalCameraType = cam.CameraType
-        cam.CameraType = Enum.CameraType.Scriptable
-
         -- 🌟 เปิด P1000 แบบหมุนเต็ม
         local PastedSources = true
         local DesyncTypes = {}
@@ -579,9 +574,6 @@ FollowTab:CreateButton({
                     local forwardOffset = targetHRP.CFrame.LookVector * 2
                     myHRP.CFrame = targetHRP.CFrame + forwardOffset
                 end
-
-                -- 🌟 รีเซ็ตกล้องทุกเฟรม
-                cam.CFrame = originalCamCFrame
             end
         end)
 
