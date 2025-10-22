@@ -437,14 +437,45 @@ local function stopAction()
     if activeAnimation then activeAnimation:Stop() activeAnimation = nil end
 end
 
--- ฟังก์ชันโหลดรายชื่อผู้เล่น
+local playerNameMap = {} -- เก็บ mapping ระหว่างชื่อใน dropdown กับชื่อจริง
+
 local function getPlayerList()
     local list = {}
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then
-            table.insert(list, plr.Name)
+    playerNameMap = {}
+
+    local myChar = LocalPlayer.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+    if myHRP then
+        local distanceList = {}
+
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (plr.Character.HumanoidRootPart.Position - myHRP.Position).Magnitude
+                table.insert(distanceList, {name = plr.Name, distance = dist})
+            elseif plr ~= LocalPlayer then
+                table.insert(distanceList, {name = plr.Name, distance = math.huge})
+            end
+        end
+
+        table.sort(distanceList, function(a, b)
+            return a.distance < b.distance
+        end)
+
+        for _, data in ipairs(distanceList) do
+            local text = string.format("%s (%.1f studs)", data.name, data.distance)
+            table.insert(list, text)
+            playerNameMap[text] = data.name
+        end
+    else
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                table.insert(list, plr.Name .. " (?)")
+                playerNameMap[plr.Name .. " (?)"] = plr.Name
+            end
         end
     end
+
     return list
 end
 
@@ -469,18 +500,23 @@ local playerDropdown = FollowTab:CreateDropdown({
     CurrentOption = {},
     Flag = "TargetPlayerSelect",
     Callback = function(Option)
-        setTargetPlayer(Option[1])
+        local realName = playerNameMap[Option[1]]
+        if realName then
+            setTargetPlayer(realName)
+        else
+            warn("ไม่พบผู้เล่นใน mapping:", Option[1])
+        end
     end,
 })
 
 ------------------------------------------------------
--- ปุ่ม Refresh รายชื่อผู้เล่น
+-- ปุ่ม Refresh รายชื่อผู้เล่น (อัปเดต studs ใหม่)
 ------------------------------------------------------
 FollowTab:CreateButton({
-    Name = "Refresh Players",
+    Name = "🔁 Refresh Players (Show Studs)",
     Callback = function()
         playerDropdown:Refresh(getPlayerList(), true)
-        print("🔁 Player list refreshed!")
+        print("✅ Player list refreshed and sorted by distance!")
     end,
 })
 
