@@ -516,7 +516,6 @@ FollowTab:CreateButton({
     Name = "🔁 Refresh Players (Show Studs)",
     Callback = function()
         playerDropdown:Refresh(getPlayerList(), true)
-        print("✅ Player list refreshed and sorted by distance!")
     end,
 })
 
@@ -623,15 +622,13 @@ local DesyncTypes = {}
 -- 🌟 สร้าง Toggle ใน Rayfield
 ------------------------------------------------------
 FollowTab:CreateToggle({
-	Name = "เปิด P1000 (ไม่วาป)",
+	Name = "kick AURA",
 	CurrentValue = false,
-	Flag = "P1000Toggle",
+	Flag = "kickAURAToggle",
 	Callback = function(state)
 		PastedSources = state
 		if state then
-			print("✅ Enabled P1000")
 		else
-			print("❌ Disabled P1000")
 		end
 	end
 })
