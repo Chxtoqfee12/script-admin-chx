@@ -1,4 +1,4 @@
-
+loadstring(game:HttpGet('https://raw.githubusercontent.com/Chxtoqfee12/script-admin-chx/refs/heads/SRC/anticheat%20BASIC'))()
 -- ==========================
 -- โหลด Rayfield Library
 -- ==========================
