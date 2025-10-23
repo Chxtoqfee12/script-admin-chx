@@ -549,12 +549,13 @@ FollowTab:CreateButton({
                 DesyncTypes[1] = myHRP.CFrame
                 DesyncTypes[2] = myHRP.AssemblyLinearVelocity
 
-                -- หมุนสุ่มเต็ม 360 องศา
+                -- หมุนสุ่มเต็ม 360°
                 local SpoofCFrame = myHRP.CFrame
                 SpoofCFrame = SpoofCFrame * CFrame.Angles(
-                    math.rad(math.random(-300,180)),
-                    math.rad(math.random(-300,180)),
-                    math.rad(math.random(-300,180))
+                    math.rad(math.random(-3000, 280)),
+                    math.rad(math.random(-3000, 280)),
+                    math.rad(math.random(-3000, 280)),
+                    math.rad(math.random(-3000, 280))
                 )
 
                 myHRP.CFrame = SpoofCFrame
@@ -601,6 +602,68 @@ FollowTab:CreateButton({
         end
     end
 })
+
+------------------------------------------------------
+-- 🌟 Toggle P1000 Desync (ไม่มีวาป)
+------------------------------------------------------
+local P1000_Toggle = false
+local P1000_Connection
+local DesyncTypes = {}
+
+FollowTab:CreateToggle({
+    Name = "เปิด P1000 (ไม่วาป)",
+    CurrentValue = false,
+    Flag = "P1000Toggle",
+    Callback = function(state)
+        P1000_Toggle = state
+
+        -- ถ้ามีการปิด ให้ยกเลิกการทำงานเดิม
+        if not state then
+            if P1000_Connection then
+                P1000_Connection:Disconnect()
+                P1000_Connection = nil
+            end
+            return
+        end
+
+        -- เริ่มระบบ P1000
+        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not myHRP then
+            warn("หา HumanoidRootPart ไม่เจอ")
+            return
+        end
+
+        -- 🌟 เปิด P1000 แบบหมุนสุ่ม (ไม่มีวาป)
+        P1000_Connection = RunService.Heartbeat:Connect(function()
+            if P1000_Toggle and myHRP then
+                -- เก็บค่าตำแหน่ง/ความเร็วเดิม
+                DesyncTypes[1] = myHRP.CFrame
+                DesyncTypes[2] = myHRP.AssemblyLinearVelocity
+
+                -- หมุนสุ่มเต็ม 360°
+                local SpoofCFrame = myHRP.CFrame
+                SpoofCFrame = SpoofCFrame * CFrame.Angles(
+                    math.rad(math.random(-3000, 280)),
+                    math.rad(math.random(-3000, 280)),
+                    math.rad(math.random(-3000, 280)),
+                    math.rad(math.random(-3000, 280))
+                )
+
+                -- ใส่ค่าหลอก
+                myHRP.CFrame = SpoofCFrame
+                myHRP.AssemblyLinearVelocity = Vector3.new(1,1,1) * 16384
+
+                -- รอ 1 frame
+                RunService.RenderStepped:Wait()
+
+                -- คืนค่าปกติ
+                myHRP.CFrame = DesyncTypes[1]
+                myHRP.AssemblyLinearVelocity = DesyncTypes[2]
+            end
+        end)
+    end
+})
+
 
 
 
