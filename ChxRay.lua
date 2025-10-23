@@ -604,65 +604,92 @@ FollowTab:CreateButton({
 })
 
 ------------------------------------------------------
--- 🌟 Toggle P1000 Desync (ไม่มีวาป)
+-- 🌟 P1000 Desync Toggle (Rayfield UI)
 ------------------------------------------------------
-local P1000_Toggle = false
-local P1000_Connection
+
+--// Services
+checkcaller = checkcaller
+newcclosure = newcclosure
+hookmetamethod = hookmetamethod
+
+local BruhXD = game:GetService("RunService")
+local LocalPlayer = game:GetService("Players").LocalPlayer
+
+-- สถานะเปิด/ปิด
+local PastedSources = false
 local DesyncTypes = {}
 
+------------------------------------------------------
+-- 🌟 สร้าง Toggle ใน Rayfield
+------------------------------------------------------
 FollowTab:CreateToggle({
-    Name = "เปิด P1000 (ไม่วาป)",
-    CurrentValue = false,
-    Flag = "P1000Toggle",
-    Callback = function(state)
-        P1000_Toggle = state
-
-        -- ถ้ามีการปิด ให้ยกเลิกการทำงานเดิม
-        if not state then
-            if P1000_Connection then
-                P1000_Connection:Disconnect()
-                P1000_Connection = nil
-            end
-            return
-        end
-
-        -- เริ่มระบบ P1000
-        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myHRP then
-            warn("หา HumanoidRootPart ไม่เจอ")
-            return
-        end
-
-        -- 🌟 เปิด P1000 แบบหมุนสุ่ม (ไม่มีวาป)
-        P1000_Connection = RunService.Heartbeat:Connect(function()
-            if P1000_Toggle and myHRP then
-                -- เก็บค่าตำแหน่ง/ความเร็วเดิม
-                DesyncTypes[1] = myHRP.CFrame
-                DesyncTypes[2] = myHRP.AssemblyLinearVelocity
-
-                -- หมุนสุ่มเต็ม 360°
-                local SpoofCFrame = myHRP.CFrame
-                SpoofCFrame = SpoofCFrame * CFrame.Angles(
-                    math.rad(math.random(-3000, 280)),
-                    math.rad(math.random(-3000, 280)),
-                    math.rad(math.random(-3000, 280)),
-                    math.rad(math.random(-3000, 280))
-                )
-
-                -- ใส่ค่าหลอก
-                myHRP.CFrame = SpoofCFrame
-                myHRP.AssemblyLinearVelocity = Vector3.new(1,1,1) * 16384
-
-                -- รอ 1 frame
-                RunService.RenderStepped:Wait()
-
-                -- คืนค่าปกติ
-                myHRP.CFrame = DesyncTypes[1]
-                myHRP.AssemblyLinearVelocity = DesyncTypes[2]
-            end
-        end)
-    end
+	Name = "เปิด P1000 (ไม่วาป)",
+	CurrentValue = false,
+	Flag = "P1000Toggle",
+	Callback = function(state)
+		PastedSources = state
+		if state then
+			print("✅ Enabled P1000")
+		else
+			print("❌ Disabled P1000")
+		end
+	end
 })
+
+------------------------------------------------------
+-- 💫 ระบบหลัก P1000 (ห้ามแก้ค่า)
+------------------------------------------------------
+function RandomNumberRange(a)
+	return math.random(-a * 100, a * 100) / 100
+end
+
+function RandomVectorRange(a, b, c)
+	return Vector3.new(RandomNumberRange(a), RandomNumberRange(b), RandomNumberRange(c))
+end
+
+BruhXD.Heartbeat:Connect(function()
+	if PastedSources and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local HRP = LocalPlayer.Character.HumanoidRootPart
+		DesyncTypes[1] = HRP.CFrame
+		DesyncTypes[2] = HRP.AssemblyLinearVelocity
+
+		-- ใช้ค่า P1000 ตามเดิม
+		local SpoofThis = HRP.CFrame
+		SpoofThis = SpoofThis * CFrame.new(Vector3.new(0, 0, 0))
+		SpoofThis = SpoofThis * CFrame.Angles(
+			math.rad(RandomNumberRange(180)),
+			math.rad(RandomNumberRange(180)),
+			math.rad(RandomNumberRange(180))
+		)
+
+		HRP.CFrame = SpoofThis
+		HRP.AssemblyLinearVelocity = Vector3.new(1, 1, 1) * 16384
+
+		BruhXD.RenderStepped:Wait()
+
+		HRP.CFrame = DesyncTypes[1]
+		HRP.AssemblyLinearVelocity = DesyncTypes[2]
+	end
+end)
+
+------------------------------------------------------
+-- 🧠 Hook CFrame (ห้ามแก้ค่า)
+------------------------------------------------------
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+	if PastedSources then
+		if not checkcaller() then
+			if key == "CFrame" and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+				if self == LocalPlayer.Character.HumanoidRootPart then
+					return DesyncTypes[1] or CFrame.new()
+				elseif self == LocalPlayer.Character:FindFirstChild("Head") then
+					return DesyncTypes[1] and DesyncTypes[1] + Vector3.new(0, LocalPlayer.Character.HumanoidRootPart.Size / 2 + 0.5, 0) or CFrame.new()
+				end
+			end
+		end
+	end
+	return oldIndex(self, key)
+end))
 
 
 
