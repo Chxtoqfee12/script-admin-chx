@@ -187,7 +187,7 @@ setthreadidentity(7)
 
 
 -- Example
-showMessage("⚡Adonis AntiCheat Bypass", 3, "CHX Script")
+showMessage("Adonis AntiCheat Bypass Active", 3, "CHX Script")
 -- ==========================
 -- โหลด Rayfield Library
 -- ==========================
