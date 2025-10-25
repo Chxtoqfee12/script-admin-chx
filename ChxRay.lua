@@ -702,7 +702,7 @@ local playerDropdown = FollowTab:CreateDropdown({
 -- ปุ่ม Refresh รายชื่อผู้เล่น (อัปเดต studs ใหม่)
 ------------------------------------------------------
 FollowTab:CreateButton({
-    Name = "🔁 Refresh Players (Show Studs)",
+    Name = "Refresh Players",
     Callback = function()
         playerDropdown:Refresh(getPlayerList(), true)
     end,
