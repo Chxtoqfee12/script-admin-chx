@@ -712,7 +712,7 @@ FollowTab:CreateButton({
 -- Kick Player with P1000 Desync
 ------------------------------------------------------
 FollowTab:CreateButton({
-    Name = "Kick Player",
+    Name = "Kick Player Beta",
     Callback = function()
         if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then
             warn("กรุณาเลือก Target Player ก่อน")
