@@ -709,173 +709,140 @@ FollowTab:CreateButton({
 })
 
 ------------------------------------------------------
--- Kick Player with P1000 Desync
+-- ⚡ Kick Player (Fling Mode) - แทน P1000 Desync
+------------------------------------------------------
+------------------------------------------------------
+-- ⚡ Kick Player (Fling Mode) - เชื่อมกับ dropdown
+------------------------------------------------------
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- ป้องกันซ้ำ
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+	local detection = Instance.new("Decal")
+	detection.Name = "juisdfj0i32i0eidsuf0iok"
+	detection.Parent = ReplicatedStorage
+end
+
+------------------------------------------------------
+-- ⚡ ปุ่ม Kick Player (Fling Mode)
 ------------------------------------------------------
 FollowTab:CreateButton({
-    Name = "Kick Player Beta",
-    Callback = function()
-        if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then
-            warn("กรุณาเลือก Target Player ก่อน")
-            return
-        end
+	Name = "⚡ Kick Player (Fling Mode)",
+	Callback = function()
+		-- ✅ ใช้ค่าจาก dropdown (targetPlayer)
+		if not targetPlayer or not targetPlayer.Character or not LocalPlayer.Character then
+			return
+		end
 
-        local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myHRP or not targetHRP then return end
+		local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+		local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if not myHRP or not targetHRP then
+			return
+		end
 
-        -- เก็บตำแหน่งเดิม
-        local originalCFrame = myHRP.CFrame
+		-- ✅ เก็บตำแหน่งเดิม
+		local originalCFrame = myHRP.CFrame
 
-        -- 🌟 เปิด P1000 แบบหมุนเต็ม
-        local PastedSources = true
-        local DesyncTypes = {}
-        local HeartbeatConnection
+		------------------------------------------------------
+		-- 🌪️ เปิด Fling อัตโนมัติขณะวาร์ปไปหาเป้าหมาย
+		------------------------------------------------------
+		local flingEnabled = true
+		local movel = 0.1
+		local flingEnd = tick() + 2 -- fling 2 วินาที
 
-        HeartbeatConnection = RunService.Heartbeat:Connect(function()
-            if PastedSources and myHRP then
-                -- เก็บตำแหน่งและความเร็วเดิม
-                DesyncTypes[1] = myHRP.CFrame
-                DesyncTypes[2] = myHRP.AssemblyLinearVelocity
+		while flingEnabled and tick() < flingEnd do
+			RunService.Heartbeat:Wait()
+			local c = LocalPlayer.Character
+			local hrp = c and c:FindFirstChild("HumanoidRootPart")
+			if not hrp or not targetHRP then break end
 
-                -- หมุนสุ่มเต็ม 360°
-                local SpoofCFrame = myHRP.CFrame
-                SpoofCFrame = SpoofCFrame * CFrame.Angles(
-                    math.rad(math.random(-3000, 280)),
-                    math.rad(math.random(-3000, 280)),
-                    math.rad(math.random(-3000, 280)),
-                    math.rad(math.random(-3000, 280))
-                )
+			-- วาร์ปไปตำแหน่งเป้าหมาย
+			hrp.CFrame = targetHRP.CFrame
 
-                myHRP.CFrame = SpoofCFrame
-                myHRP.AssemblyLinearVelocity = Vector3.new(1,1,1) * 16384
+			-- fling แบบต้นฉบับ
+			local vel = hrp.Velocity
+			hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+			RunService.RenderStepped:Wait()
+			hrp.Velocity = vel
+			RunService.Stepped:Wait()
+			hrp.Velocity = vel + Vector3.new(0, movel, 0)
+			movel = -movel
+		end
 
-                RunService.RenderStepped:Wait()
-
-                myHRP.CFrame = DesyncTypes[1]
-                myHRP.AssemblyLinearVelocity = DesyncTypes[2]
-
-                -- 🌟 วาปไปหน้าผู้เล่นล่วงหน้า 2 stud
-                if targetHRP and targetHRP.Parent then
-                    local forwardOffset = targetHRP.CFrame.LookVector * 2
-                    myHRP.CFrame = targetHRP.CFrame + forwardOffset
-                end
-            end
-        end)
-
-        -- Hook CFrame
-        local oldIndex
-        oldIndex = hookmetamethod(game, "__index", newcclosure(function(self,key)
-            if PastedSources and not checkcaller() then
-                if key == "CFrame" and myHRP and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.Health > 0 then
-                    if self == myHRP then
-                        return DesyncTypes[1] or CFrame.new()
-                    elseif self == LocalPlayer.Character:FindFirstChild("Head") then
-                        return DesyncTypes[1] and DesyncTypes[1] + Vector3.new(0,myHRP.Size.Y/2 + 0.5,0) or CFrame.new()
-                    end
-                end
-            end
-            return oldIndex(self,key)
-        end))
-
-        -- 🌟 อยู่ติดตัวผู้เล่น 0.5 วินาที
-        task.wait(0.5)
-
-        -- 🌟 วาปกลับตำแหน่งเดิม
-        myHRP.CFrame = originalCFrame
-
-        -- 🌟 ปิด P1000 อัตโนมัติ
-        PastedSources = false
-        if HeartbeatConnection then
-            HeartbeatConnection:Disconnect()
-        end
-    end
+		------------------------------------------------------
+		-- 🔚 ปิด fling และกลับตำแหน่งเดิม
+		------------------------------------------------------
+		flingEnabled = false
+		if myHRP then
+			myHRP.CFrame = originalCFrame
+			myHRP.Velocity = Vector3.zero
+		end
+	end
 })
 
+
+
 ------------------------------------------------------
--- 🌟 P1000 Desync Toggle (Rayfield UI)
+-- 🌪️ Touch Fling (Rayfield Toggle)
 ------------------------------------------------------
 
 --// Services
-checkcaller = checkcaller
-newcclosure = newcclosure
-hookmetamethod = hookmetamethod
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local BruhXD = game:GetService("RunService")
-local LocalPlayer = game:GetService("Players").LocalPlayer
+local lp = Players.LocalPlayer
 
--- สถานะเปิด/ปิด
-local PastedSources = false
-local DesyncTypes = {}
+--// ตรวจสอบ object ตรวจจับ
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+	local detection = Instance.new("Decal")
+	detection.Name = "juisdfj0i32i0eidsuf0iok"
+	detection.Parent = ReplicatedStorage
+end
 
 ------------------------------------------------------
--- 🌟 สร้าง Toggle ใน Rayfield
+-- 🌪️ เพิ่มปุ่มใน Rayfield (FollowTab)
 ------------------------------------------------------
+local flingEnabled = false
+local flingThread
+
 FollowTab:CreateToggle({
-	Name = "kick AURA",
+	Name = "🌪️ Touch Fling",
 	CurrentValue = false,
-	Flag = "kickAURAToggle",
+	Flag = "TouchFlingToggle",
 	Callback = function(state)
-		PastedSources = state
-		if state then
-		else
+		flingEnabled = state
+
+		if flingEnabled then
+			if not flingThread or coroutine.status(flingThread) == "dead" then
+				flingThread = coroutine.create(function()
+					local movel = 0.1
+					while flingEnabled do
+						RunService.Heartbeat:Wait()
+						local char = lp.Character
+						local hrp = char and char:FindFirstChild("HumanoidRootPart")
+						if not hrp then continue end
+						
+						local vel = hrp.Velocity
+						-- 🔥 ค่าจากต้นฉบับเป๊ะ
+						hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+						RunService.RenderStepped:Wait()
+						hrp.Velocity = vel
+						RunService.Stepped:Wait()
+						hrp.Velocity = vel + Vector3.new(0, movel, 0)
+						movel = -movel
+					end
+				end)
+				coroutine.resume(flingThread)
+			end
 		end
 	end
 })
 
-------------------------------------------------------
--- 💫 ระบบหลัก P1000 (ห้ามแก้ค่า)
-------------------------------------------------------
-function RandomNumberRange(a)
-	return math.random(-a * 100, a * 100) / 100
-end
-
-function RandomVectorRange(a, b, c)
-	return Vector3.new(RandomNumberRange(a), RandomNumberRange(b), RandomNumberRange(c))
-end
-
-BruhXD.Heartbeat:Connect(function()
-	if PastedSources and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-		local HRP = LocalPlayer.Character.HumanoidRootPart
-		DesyncTypes[1] = HRP.CFrame
-		DesyncTypes[2] = HRP.AssemblyLinearVelocity
-
-		-- ใช้ค่า P1000 ตามเดิม
-		local SpoofThis = HRP.CFrame
-		SpoofThis = SpoofThis * CFrame.new(Vector3.new(0, 0, 0))
-		SpoofThis = SpoofThis * CFrame.Angles(
-			math.rad(RandomNumberRange(180)),
-			math.rad(RandomNumberRange(180)),
-			math.rad(RandomNumberRange(180))
-		)
-
-		HRP.CFrame = SpoofThis
-		HRP.AssemblyLinearVelocity = Vector3.new(1, 1, 1) * 16384
-
-		BruhXD.RenderStepped:Wait()
-
-		HRP.CFrame = DesyncTypes[1]
-		HRP.AssemblyLinearVelocity = DesyncTypes[2]
-	end
-end)
-
-------------------------------------------------------
--- 🧠 Hook CFrame (ห้ามแก้ค่า)
-------------------------------------------------------
-local oldIndex
-oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
-	if PastedSources then
-		if not checkcaller() then
-			if key == "CFrame" and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-				if self == LocalPlayer.Character.HumanoidRootPart then
-					return DesyncTypes[1] or CFrame.new()
-				elseif self == LocalPlayer.Character:FindFirstChild("Head") then
-					return DesyncTypes[1] and DesyncTypes[1] + Vector3.new(0, LocalPlayer.Character.HumanoidRootPart.Size / 2 + 0.5, 0) or CFrame.new()
-				end
-			end
-		end
-	end
-	return oldIndex(self, key)
-end))
 
 
 
