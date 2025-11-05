@@ -44,7 +44,7 @@ local Section = Tab:CreateSection("TP Walk & Jump")
 -- 🚶 Toggle เปิดปิด TP Walk
 ------------------------------------------------------------
 Tab:CreateToggle({
-	Name = "TP Walk",
+	Name = "Speed Walk",
 	CurrentValue = false,
 	Callback = function(state)
 		currentValues.TPWalkEnabled = state
@@ -55,7 +55,7 @@ Tab:CreateToggle({
 -- ⚙️ Slider ปรับความเร็ว TP Walk
 ------------------------------------------------------------
 Tab:CreateSlider({
-	Name = "TP Walk Speed",
+	Name = "Speed Walk",
 	Range = {1, 10},
 	Increment = 0.1,
 	Suffix = "x",
