@@ -30,8 +30,8 @@ local currentValues = {
 -- 🪟 Rayfield GUI
 ------------------------------------------------------------
 local Window = Rayfield:CreateWindow({
-	Name = "Chx Script",
-	LoadingTitle = "Chx Script",
+	Name = "Dual Universal",
+	LoadingTitle = "Chx & Kira",
 	LoadingSubtitle = "TP Walk / Smooth Jump",
 	Theme = "Default",
 	ConfigurationSaving = {Enabled = false}
@@ -287,17 +287,26 @@ RunService.Stepped:Connect(function()
 end)
 
 ------------------------------------------------------
--- Invisible Toggle & Logic (ไม่พบปัญหาใหญ่ แต่ปรับปรุงเล็กน้อย)
+-- Invisible Toggle & Logic (ตัวจริงยังมี Humanoid)
+------------------------------------------------------
+------------------------------------------------------
+-- Invisible Toggle & Logic (เวอร์ชันวาร์ปลงใต้แมพปลอดภัย)
 ------------------------------------------------------
 
 local invisRunning = false
 local IsInvis = false
 local Character, InvisibleCharacter
-local bodyPos
 local invisDied
+local hiddenPlatform -- แผ่นไว้ซ่อนตัวจริง
 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local workspace = game:GetService("Workspace")
+
+------------------------------------------------------
+-- ฟังก์ชันเปิดโหมด Invisible
+------------------------------------------------------
 local function TurnInvisible()
-    -- ... (ฟังก์ชันเดิมของคุณ)
     if invisRunning or IsInvis then return end
     invisRunning = true
 
@@ -305,12 +314,13 @@ local function TurnInvisible()
     if not Character then return end
     Character.Archivable = true
 
-    -- Clone ตัวละคร
+    --------------------------------------------------
+    -- สร้างร่างโคลน
+    --------------------------------------------------
     InvisibleCharacter = Character:Clone()
     InvisibleCharacter.Name = "InvisibleClone"
     InvisibleCharacter.Parent = workspace
 
-    -- ปรับความโปร่งใส
     for _, v in pairs(InvisibleCharacter:GetDescendants()) do
         if v:IsA("BasePart") then
             if v.Name == "HumanoidRootPart" then
@@ -318,40 +328,61 @@ local function TurnInvisible()
             else
                 v.Transparency = 0.5
             end
-            -- ปิด CanCollide ของตัวโคลนเพื่อไม่ให้เกิดบั๊ก
             v.CanCollide = false
         end
     end
 
-    -- ย้ายร่างจริงกลางอากาศ
+    --------------------------------------------------
+    -- คำนวณตำแหน่งพื้น แล้วสร้างแผ่นใต้พื้น (ไม่ลึกเกิน)
+    --------------------------------------------------
     local root = Character:FindFirstChild("HumanoidRootPart")
     if root then
-        root.CFrame = root.CFrame + Vector3.new(0,600,0)
-        bodyPos = Instance.new("BodyPosition")
-        bodyPos.MaxForce = Vector3.new(1e5,1e5,1e5)
-        bodyPos.P = 3e4
-        bodyPos.Position = root.Position
-        bodyPos.Parent = root
+        -- หา Y ของพื้นใต้เท้า
+        local rayOrigin = root.Position
+        local rayDirection = Vector3.new(0, -1000, 0)
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = {Character}
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+        local result = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+        local groundY = result and result.Position.Y or (root.Position.Y - 20)
+        local safeY = groundY - 150 -- ห่างจากพื้นประมาณ 150 หน่วย (ไม่ตก void)
+
+        -- สร้างแผ่นรองตัวจริง
+        if not hiddenPlatform or not hiddenPlatform.Parent then
+            hiddenPlatform = Instance.new("Part")
+            hiddenPlatform.Name = "HiddenPlatform"
+            hiddenPlatform.Anchored = true
+            hiddenPlatform.Size = Vector3.new(100, 10, 100)
+            hiddenPlatform.Transparency = 1
+            hiddenPlatform.CanCollide = true
+            hiddenPlatform.Position = Vector3.new(root.Position.X, safeY, root.Position.Z)
+            hiddenPlatform.Parent = workspace
+        else
+            hiddenPlatform.Position = Vector3.new(root.Position.X, safeY, root.Position.Z)
+        end
+
+        -- วาร์ปร่างจริงไปอยู่บนแผ่นนั้น
+        root.CFrame = CFrame.new(hiddenPlatform.Position + Vector3.new(0, 5, 0))
     end
 
-    -- เปลี่ยน Character ให้ควบคุม Invisible
+    --------------------------------------------------
+    -- เปลี่ยนให้ควบคุมร่างโคลนแทน
+    --------------------------------------------------
     LocalPlayer.Character = InvisibleCharacter
     IsInvis = true
 
-    -- กล้องตามโคลน
     local humanoid = InvisibleCharacter:FindFirstChildOfClass("Humanoid")
     if humanoid then
         workspace.CurrentCamera.CameraSubject = humanoid
     end
 
-    -- ปิด/เปิด Animate ให้รีเฟรช
     local animate = InvisibleCharacter:FindFirstChild("Animate")
     if animate then
         animate.Disabled = true
         animate.Disabled = false
     end
 
-    -- ตรวจจับถ้าตาย
     if humanoid then
         invisDied = humanoid.Died:Connect(function()
             TurnVisible()
@@ -359,25 +390,23 @@ local function TurnInvisible()
     end
 
     invisRunning = false
-    print("Invisible: ON")
 end
 
+------------------------------------------------------
+-- ฟังก์ชันปิดโหมด Invisible
+------------------------------------------------------
 function TurnVisible()
-    -- ... (ฟังก์ชันเดิมของคุณ)
     if not IsInvis then return end
 
-    -- เก็บตำแหน่งปัจจุบันของโคลน
     local CF
     local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if root then CF = root.CFrame end
 
-    -- ลบร่างโคลน
     if InvisibleCharacter then
         InvisibleCharacter:Destroy()
         InvisibleCharacter = nil
     end
 
-    -- เอาตัวจริงกลับมา
     if Character and Character.Parent then
         LocalPlayer.Character = Character
         if CF and Character:FindFirstChild("HumanoidRootPart") then
@@ -389,56 +418,49 @@ function TurnVisible()
         end
     end
 
-    -- ลบ BodyPosition
-    if bodyPos then
-        bodyPos:Destroy()
-        bodyPos = nil
+    if hiddenPlatform then
+        hiddenPlatform:Destroy()
+        hiddenPlatform = nil
     end
 
-    -- รีเฟรช Animate
-    if Character and Character:FindFirstChild("Animate") then
-        Character.Animate.Disabled = true
-        Character.Animate.Disabled = false
-    end
-
-    -- Disconnect event
     if invisDied then
         invisDied:Disconnect()
         invisDied = nil
     end
 
     IsInvis = false
-    print("Invisible: OFF")
 end
 
--- Toggle Invisible
+------------------------------------------------------
+-- Toggle Invisible (ปุ่มเปิด/ปิด)
+------------------------------------------------------
 local invisibleToggle = Tab:CreateToggle({
     Name = "Invisible",
     CurrentValue = false,
     Flag = "InvisibleToggle",
     Callback = function(value)
         if value then
-            -- ใช้ pcall กัน error
             local success, err = pcall(function()
                 TurnInvisible()
             end)
             if not success then
-                warn("TurnInvisible error: "..tostring(err))
             else
-                showNotification("Invisible: ON")
             end
         else
             local success, err = pcall(function()
                 TurnVisible()
             end)
             if not success then
-                warn("TurnVisible error: "..tostring(err))
             else
-                showNotification("Invisible: OFF")
             end
         end
     end
 })
+
+
+
+
+
 
 
 
