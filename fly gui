@@ -12,7 +12,8 @@ local mini = Instance.new("TextButton")
 local mini2 = Instance.new("TextButton")
 
 main.Name = "main"
-main.Parent = game.Players.LocalPlayer:WaitForChild("CoreGui")
+-- แก้ไขบรรทัดนี้: ใช้ CoreGui โดยตรง
+main.Parent = game:GetService("CoreGui")
 main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 main.ResetOnSpawn = false
 
