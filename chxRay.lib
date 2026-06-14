@@ -769,7 +769,7 @@ end
 
 do
 	local AssetPath = ChxlibraryFolder.."/Assets"
-	local AssetBaseURL = "https://github.com/SiriusSoftwareLtd/Chxlibrary/blob/main/assets/"
+	local AssetBaseURL = "https://github.com/SiriusSoftwareLtd/Rayfield/blob/main/assets/"
 
 	local assetFiles = {
 		["111263549366178"] = AssetBaseURL.."111263549366178.png?raw=true",
