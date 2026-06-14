@@ -1,7 +1,6 @@
 --[[
 
-	Chx Script
-	by ChristopFxx
+	Chxlibrary Interface
 
 	shlex  | Designing + Programming
 	iRay   | Programming
@@ -11,13 +10,21 @@
 ]]
 
 if debugX then
-	warn('Initialising Rayfield')
+	warn('Initialising Chxlibrary')
 end
+
+
 
 local function getService(name)
 	local service = game:GetService(name)
 	return if cloneref then cloneref(service) else service
 end
+
+-- Services
+local UserInputService = getService("UserInputService")
+local TweenService = getService("TweenService")
+local Players = getService("Players")
+local CoreGui = getService("CoreGui")
 
 -- Loads and executes a function hosted on a remote URL. Cancels the request if the requested URL takes too long to respond.
 -- Errors with the function are caught and logged to the output
@@ -48,7 +55,7 @@ local function loadWithTimeout(url: string, timeout: number?): ...any
 
 	local timeoutThread = task.delay(timeout, function()
 		if not requestCompleted then
-			warn(`Request for {url} timed out after {timeout} seconds`)
+			warn("Request for " .. url .. " timed out after " .. tostring(timeout) .. " seconds")
 			task.cancel(requestThread)
 			result = "Request timed out"
 			requestCompleted = true
@@ -64,21 +71,56 @@ local function loadWithTimeout(url: string, timeout: number?): ...any
 		task.cancel(timeoutThread)
 	end
 	if not success then
-		warn(`Failed to process {url}: {result}`)
+		warn("Failed to process " .. tostring(url) .. ": " .. tostring(result))
 	end
 	return if success then result else nil
 end
 
-local requestsDisabled = true --getgenv and getgenv().DISABLE_RAYFIELD_REQUESTS
-local InterfaceBuild = '3K3W'
-local Release = "Build 1.68"
-local RayfieldFolder = "Rayfield"
-local ConfigurationFolder = RayfieldFolder.."/Configurations"
+local requestsDisabled = false
+local customAssetId = nil
+local secureMode = false
+if getgenv then
+	local ok, result = pcall(function() return getgenv().DISABLE_RAYFIELD_REQUESTS end)
+	if ok and result then requestsDisabled = true end
+	local ok2, result2 = pcall(function() return getgenv().RAYFIELD_ASSET_ID end)
+	if ok2 and type(result2) == "number" then customAssetId = result2 end
+	local ok3, result3 = pcall(function() return getgenv().RAYFIELD_SECURE end)
+	if ok3 and result3 then secureMode = true end
+end
+
+if secureMode then
+	local _error = error
+	local _assert = assert
+	warn = function(...) end
+	print = function(...) end
+	error = function(_, level) _error("", level) end
+	assert = function(v, ...) return _assert(v) end
+end
+
+local secureWarnings = {}
+local customAssets = {}
+
+local function secureNotify(wType, title, content)
+	if secureWarnings[wType] then return end
+	secureWarnings[wType] = true
+	task.spawn(function()
+		while not Chxlibrary or not Chxlibrary.Notify do task.wait(0.5) end
+		Chxlibrary:Notify({
+			Title = title,
+			Content = content,
+			Duration = 8,
+		})
+	end)
+end
+local InterfaceBuild = 'UU2NX'
+local Release = "Build 1.747"
+local ChxlibraryFolder = "Chxlibrary"
+local ConfigurationFolder = ChxlibraryFolder.."/Configurations"
 local ConfigurationExtension = ".rfld"
 local settingsTable = {
 	General = {
 		-- if needs be in order just make getSetting(name)
-		rayfieldOpen = {Type = 'bind', Value = 'K', Name = 'Keybind'},
+		rayfieldOpen = {Type = 'bind', Value = 'K', Name = 'Chxlibrary Keybind'},
 		-- buildwarnings
 		-- rayfieldprompts
 
@@ -92,12 +134,12 @@ local settingsTable = {
 -- Overridden settings always take precedence over settings in the configuration file, and are cleared if the user changes the setting in the UI
 local overriddenSettings: { [string]: any } = {} -- For example, overriddenSettings["System.rayfieldOpen"] = "J"
 local function overrideSetting(category: string, name: string, value: any)
-	overriddenSettings[`{category}.{name}`] = value
+	overriddenSettings[category .. "." .. name] = value
 end
 
 local function getSetting(category: string, name: string): any
-	if overriddenSettings[`{category}.{name}`] ~= nil then
-		return overriddenSettings[`{category}.{name}`]
+	if overriddenSettings[category .. "." .. name] ~= nil then
+		return overriddenSettings[category .. "." .. name]
 	elseif settingsTable[category][name] ~= nil then
 		return settingsTable[category][name].Value
 	end
@@ -116,7 +158,6 @@ local useStudio = RunService:IsStudio() or false
 
 local settingsCreated = false
 local settingsInitialized = false -- Whether the UI elements in the settings page have been set to the proper values
-local cachedSettings
 local prompt = useStudio and require(script.Parent.prompt) or loadWithTimeout('https://raw.githubusercontent.com/SiriusSoftwareLtd/Sirius/refs/heads/request/prompt.lua')
 local requestFunc = (syn and syn.request) or (fluxus and fluxus.request) or (http and http.request) or http_request or request
 
@@ -129,62 +170,91 @@ if not prompt and not useStudio then
 end
 
 
+-- The function below provides a safe alternative for calling error-prone functions
+-- Especially useful for filesystem function (writefile, makefolder, etc.)
+local function callSafely(func, ...)
+	if func then
+		local success, result = pcall(func, ...)
+		if not success then
+			warn("Chxlibrary | Function failed with error: ", result)
+			return false
+		else
+			return result
+		end
+	end
+end
+
+-- Ensures a folder exists by creating it if needed
+local function ensureFolder(folderPath)
+	if isfolder and not callSafely(isfolder, folderPath) then
+		callSafely(makefolder, folderPath)
+	end
+end
 
 local function loadSettings()
 	local file = nil
 
 	local success, result =	pcall(function()
-		task.spawn(function()
-			if isfolder and isfolder(RayfieldFolder) then
-				if isfile and isfile(RayfieldFolder..'/settings'..ConfigurationExtension) then
-					file = readfile(RayfieldFolder..'/settings'..ConfigurationExtension)
-				end
+		if callSafely(isfolder, ChxlibraryFolder) then
+			if callSafely(isfile, ChxlibraryFolder..'/settings'..ConfigurationExtension) then
+				file = callSafely(readfile, ChxlibraryFolder..'/settings'..ConfigurationExtension)
 			end
+		end
 
-			-- for debug in studio
-			if useStudio then
-				file = [[
-		{"General":{"rayfieldOpen":{"Value":"K","Type":"bind","Name":"Rayfield Keybind","Element":{"HoldToInteract":false,"Ext":true,"Name":"Rayfield Keybind","Set":null,"CallOnChange":true,"Callback":null,"CurrentKeybind":"K"}}},"System":{"usageAnalytics":{"Value":false,"Type":"toggle","Name":"Anonymised Analytics","Element":{"Ext":true,"Name":"Anonymised Analytics","Set":null,"CurrentValue":false,"Callback":null}}}}
-	]]
-			end
+		-- for debug in studio
+		if useStudio then
+			file = [[
+	{"General":{"rayfieldOpen":{"Value":"K","Type":"bind","Name":"Chxlibrary Keybind","Element":{"HoldToInteract":false,"Ext":true,"Name":"Chxlibrary Keybind","Set":null,"CallOnChange":true,"Callback":null,"CurrentKeybind":"K"}}},"System":{"usageAnalytics":{"Value":false,"Type":"toggle","Name":"Anonymised Analytics","Element":{"Ext":true,"Name":"Anonymised Analytics","Set":null,"CurrentValue":false,"Callback":null}}}}
+]]
+		end
 
-
-			if file then
-				local success, decodedFile = pcall(function() return HttpService:JSONDecode(file) end)
-				if success then
-					file = decodedFile
-				else
-					file = {}
-				end
+		if file then
+			local decodeSuccess, decodedFile = pcall(function() return HttpService:JSONDecode(file) end)
+			if decodeSuccess then
+				file = decodedFile
 			else
 				file = {}
 			end
+		else
+			file = {}
+		end
 
 
-			if not settingsCreated then 
-				cachedSettings = file
-				return
-			end
+		if not settingsCreated then
+			return
+		end
 
-			if file ~= {} then
-				for categoryName, settingCategory in pairs(settingsTable) do
-					if file[categoryName] then
-						for settingName, setting in pairs(settingCategory) do
-							if file[categoryName][settingName] then
-								setting.Value = file[categoryName][settingName].Value
-								setting.Element:Set(getSetting(categoryName, settingName))
-							end
-						end
+		-- Check if settings file has any entries
+		if next(file) ~= nil then
+			-- If it does, apply them
+			for categoryName, categoryTable in file do
+				for settingName, setting in categoryTable do
+					local default = settingsTable[categoryName] and settingsTable[categoryName][settingName]
+					if not default then continue end -- ignore keys not in settingsTable (old/renamed settings)
+					local settingType = typeof(default.Value)
+					-- Make sure setting has the correct type
+					if not (settingType == typeof(setting.Value)) then
+						warn("Chxlibrary | Error parsing settings file. '"..settingName.."' must be a "..settingType)
+						continue
 					end
+					default.Value = setting.Value
 				end
 			end
-			settingsInitialized = true
-		end)
+		end
+		-- Apply the actual setting value to UI elements
+		for categoryName, categoryTable in settingsTable do
+			for settingName, setting in categoryTable do
+				if setting.Element then
+					setting.Element:Set(getSetting(categoryName, settingName))
+				end
+			end
+		end
+		settingsInitialized = true
 	end)
 
 	if not success then 
 		if writefile then
-			warn('Rayfield had an issue accessing configuration saving capability.')
+			warn('Chxlibrary had an issue accessing configuration saving capability.')
 		end
 	end
 end
@@ -199,48 +269,32 @@ if debugX then
 	warn('Settings Loaded')
 end
 
-local analyticsLib
-local sendReport = function(ev_n, sc_n) warn("Failed to load report function") end
-if not requestsDisabled then
-	if debugX then
-		warn('Querying Settings for Reporter Information')
-	end	
-	analyticsLib = loadWithTimeout("https://analytics.sirius.menu/script")
-	if not analyticsLib then
-		warn("Failed to load analytics reporter")
-		analyticsLib = nil
-	elseif analyticsLib and type(analyticsLib.load) == "function" then
-		analyticsLib:load()
-	else
-		warn("Analytics library loaded but missing load function")
-		analyticsLib = nil
-	end
-	sendReport = function(ev_n, sc_n)
-		if not (type(analyticsLib) == "table" and type(analyticsLib.isLoaded) == "function" and analyticsLib:isLoaded()) then
-			warn("Analytics library not loaded")
-			return
-		end
-		if useStudio then
-			print('Sending Analytics')
-		else
-			if debugX then warn('Reporting Analytics') end
-			analyticsLib:report(
-				{
-					["name"] = ev_n,
-					["script"] = {["name"] = sc_n, ["version"] = Release}
-				},
-				{
-					["version"] = InterfaceBuild
-				}
-			)
-			if debugX then warn('Finished Report') end
+local ANALYTICS_TOKEN = "05de7f9fd320d3b8428cd1c77014a337b85b6c8efee2c5914f5ab5700c354b9a"
+
+local reporter = nil
+if not requestsDisabled and not useStudio then
+	local fetchSuccess, fetchResult = pcall((game :: any).HttpGet, game, "https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/refs/heads/main/reporter.lua")
+	if fetchSuccess and #fetchResult > 0 then
+		local execSuccess, Analytics = pcall(function()
+			return (loadstring(fetchResult) :: any)()
+		end)
+		if execSuccess and Analytics then
+			pcall(function()
+				reporter = Analytics.new({
+					url          = "https://rayfield-collect.sirius-software-ltd.workers.dev",
+					token        = ANALYTICS_TOKEN,
+					product_name = "Chxlibrary",
+					category     = "UILibrary",
+				})
+			end)
 		end
 	end
-	if cachedSettings and (#cachedSettings == 0 or (cachedSettings.System and cachedSettings.System.usageAnalytics and cachedSettings.System.usageAnalytics.Value)) then
-		sendReport("execution", "Rayfield")
-	elseif not cachedSettings then
-		sendReport("execution", "Rayfield")
-	end
+end
+
+if not useStudio then
+	task.spawn(function()
+		pcall((game :: any).HttpGet, game, "https://www.sentivel.com/api/heartbeat/81074364b461f8da81bad6fdc363c3b927f884d6fc28d806a15ee50ca1e68c78")
+	end)
 end
 
 local promptUser = 2
@@ -263,7 +317,7 @@ if debugX then
 	warn('Moving on to continue initialisation')
 end
 
-local RayfieldLibrary = {
+local Chxlibrary = {
 	Flags = {},
 	Theme = {
 		Default = {
@@ -646,23 +700,20 @@ local RayfieldLibrary = {
 }
 
 
--- Services
-local UserInputService = getService("UserInputService")
-local TweenService = getService("TweenService")
-local Players = getService("Players")
-local CoreGui = getService("CoreGui")
+
 
 -- Interface Management
 
-local Rayfield = useStudio and script.Parent:FindFirstChild('Script Chx') or game:GetObjects("rbxassetid://10804731440")[1]
+local ChxlibraryAssetId = customAssetId or 10804731440
+local Chxlibrary = useStudio and script.Parent:FindFirstChild('Chxlibrary') or game:GetObjects("rbxassetid://"..ChxlibraryAssetId)[1]
 local buildAttempts = 0
 local correctBuild = false
 local warned
 local globalLoaded
-local rayfieldDestroyed = false -- True when RayfieldLibrary:Destroy() is called
+local rayfieldDestroyed = false -- True when Chxlibrary:Destroy() is called
 
 repeat
-	if Rayfield:FindFirstChild('Build') and Rayfield.Build.Value == InterfaceBuild then
+	if Chxlibrary:FindFirstChild('Build') and Chxlibrary.Build.Value == InterfaceBuild then
 		correctBuild = true
 		break
 	end
@@ -670,54 +721,173 @@ repeat
 	correctBuild = false
 
 	if not warned then
-		warn('Rayfield | Build Mismatch')
-		print('Rayfield may encounter issues as you are running an incompatible interface version ('.. ((Rayfield:FindFirstChild('Build') and Rayfield.Build.Value) or 'No Build') ..').\n\nThis version of Rayfield is intended for interface build '..InterfaceBuild..'.')
+		warn('Chxlibrary | Build Mismatch')
+		print('Chxlibrary may encounter issues as you are running an incompatible interface version ('.. ((Chxlibrary:FindFirstChild('Build') and Chxlibrary.Build.Value) or 'No Build') ..').\n\nThis version of Chxlibrary is intended for interface build '..InterfaceBuild..'.')
 		warned = true
 	end
 
-	toDestroy, Rayfield = Rayfield, useStudio and script.Parent:FindFirstChild('Rayfield') or game:GetObjects("rbxassetid://10804731440")[1]
+	local toDestroy
+	toDestroy, Chxlibrary = Chxlibrary, useStudio and script.Parent:FindFirstChild('Chxlibrary') or game:GetObjects("rbxassetid://"..ChxlibraryAssetId)[1]
 	if toDestroy and not useStudio then toDestroy:Destroy() end
 
 	buildAttempts = buildAttempts + 1
 until buildAttempts >= 2
 
-Rayfield.Enabled = false
+Chxlibrary.Enabled = false
 
 if gethui then
-	Rayfield.Parent = gethui()
+	Chxlibrary.Parent = gethui()
 elseif syn and syn.protect_gui then 
-	syn.protect_gui(Rayfield)
-	Rayfield.Parent = CoreGui
+	syn.protect_gui(Chxlibrary)
+	Chxlibrary.Parent = CoreGui
 elseif not useStudio and CoreGui:FindFirstChild("RobloxGui") then
-	Rayfield.Parent = CoreGui:FindFirstChild("RobloxGui")
+	Chxlibrary.Parent = CoreGui:FindFirstChild("RobloxGui")
 elseif not useStudio then
-	Rayfield.Parent = CoreGui
+	Chxlibrary.Parent = CoreGui
 end
 
 if gethui then
 	for _, Interface in ipairs(gethui():GetChildren()) do
-		if Interface.Name == Rayfield.Name and Interface ~= Rayfield then
+		if Interface.Name == Chxlibrary.Name and Interface ~= Chxlibrary then
 			Interface.Enabled = false
-			Interface.Name = "Rayfield-Old"
+			Interface.Name = "Chxlibrary-Old"
 		end
 	end
 elseif not useStudio then
 	for _, Interface in ipairs(CoreGui:GetChildren()) do
-		if Interface.Name == Rayfield.Name and Interface ~= Rayfield then
+		if Interface.Name == Chxlibrary.Name and Interface ~= Chxlibrary then
 			Interface.Enabled = false
-			Interface.Name = "Rayfield-Old"
+			Interface.Name = "Chxlibrary-Old"
 		end
 	end
 end
 
+if secureMode and not customAssetId then
+	secureNotify("default_asset", "Secure Mode", "You are using the default Rayfield asset ID. Set RAYFIELD_ASSET_ID to a custom upload to avoid detection.")
+end
+
+do
+	local AssetPath = ChxlibraryFolder.."/Assets"
+	local AssetBaseURL = "https://github.com/SiriusSoftwareLtd/Chxlibrary/blob/main/assets/"
+
+	local assetFiles = {
+		["111263549366178"] = AssetBaseURL.."111263549366178.png?raw=true",
+		["77891951053543"] = AssetBaseURL.."77891951053543.png?raw=true",
+		["78137979054938"] = AssetBaseURL.."78137979054938.png?raw=true",
+		["80503127983237"] = AssetBaseURL.."80503127983237.png?raw=true",
+		["10137832201"] = AssetBaseURL.."10137832201.png?raw=true",
+		["10137941941"] = AssetBaseURL.."10137941941.png?raw=true",
+		["11036884234"] = AssetBaseURL.."11036884234.png?raw=true",
+		["11413591840"] = AssetBaseURL.."11413591840.png?raw=true",
+		["11745872910"] = AssetBaseURL.."11745872910.png?raw=true",
+		["12577727209"] = AssetBaseURL.."12577727209.png?raw=true",
+		["18458939117"] = AssetBaseURL.."18458939117.png?raw=true",
+		["3259050989"] = AssetBaseURL.."3259050989.png?raw=true",
+		["3523728077"] = AssetBaseURL.."3523728077.png?raw=true",
+		["3602733521"] = AssetBaseURL.."3602733521.png?raw=true",
+		["IconChevronTopMedium"] = AssetBaseURL.."IconChevronTopMedium.png?raw=true",
+		["4483362458"] = AssetBaseURL.."4483362458.png?raw=true",
+		["5587865193"] = AssetBaseURL.."5587865193.png?raw=true",
+		["IconMagnifyingGlass2"] = AssetBaseURL.."IconMagnifyingGlass2.png?raw=true",
+	}
+
+	for id, _ in assetFiles do
+		customAssets[tostring(id)] = ""
+	end
+
+	local hasCustomAsset = type(getcustomasset) == "function"
+	local hasFilesystem = type(writefile) == "function" and type(makefolder) == "function" and type(isfile) == "function" and type(isfolder) == "function"
+
+	if hasCustomAsset and hasFilesystem then
+		local ok, err = pcall(function()
+			ensureFolder(ChxlibraryFolder)
+			ensureFolder(AssetPath)
+
+			-- skip ids we've already tried so a dead asset can't loop the loader forever
+			local attempted = {}
+			local function nextToFetch()
+				for id, _ in assetFiles do
+					if not attempted[id] and not isfile(AssetPath.."/"..tostring(id)..".png") then
+						return id
+					end
+				end
+				return nil
+			end
+
+			if nextToFetch() then
+				task.spawn(function()
+					while true do
+						local id = nextToFetch()
+						if not id then break end
+						-- a failed request can hand back a nil/empty Body — never pass that to writefile
+						local ok, res = pcall(requestFunc, {Url = assetFiles[id], Method = "GET"})
+						if ok and type(res) == "table" and type(res.Body) == "string" and #res.Body > 0 then
+							pcall(writefile, AssetPath.."/"..tostring(id)..".png", res.Body)
+						end
+						-- mark after the attempt so the poll waits for real downloads but still skips a dead asset
+						attempted[id] = true
+						task.wait()
+					end
+				end)
+
+				while nextToFetch() do
+					task.wait(0.1)
+				end
+			end
+
+			for id, _ in assetFiles do
+				local success, asset = pcall(getcustomasset, AssetPath.."/"..tostring(id)..".png")
+				if success then
+					customAssets[tostring(id)] = asset
+				else
+					warn("Chxlibrary | Failed to load custom asset: "..tostring(id).." - "..tostring(asset))
+				end
+			end
+		end)
+
+		if not ok then
+			warn("Chxlibrary | Failed to load custom assets: "..tostring(err))
+			secureNotify("asset_load_fail", "Chxlibrary", "Failed to load custom assets. UI images may not display correctly.")
+		end
+	else
+		secureNotify("no_getcustomasset", "Chxlibrary", "Your executor does not support getcustomasset. Some UI images may not render correctly.")
+	end
+
+
+	Chxlibrary.Main.Shadow.Image.Image = customAssets[tostring(5587865193)]
+	Chxlibrary.Main.Topbar.Hide.Image = customAssets[tostring(10137832201)]
+	Chxlibrary.Main.Topbar.ChangeSize.Image = customAssets[tostring(10137941941)]
+	Chxlibrary.Main.Topbar.Settings.Image = customAssets[tostring(80503127983237)]
+	Chxlibrary.Main.Topbar.Icon.Image = customAssets[tostring(78137979054938)]
+	Chxlibrary.Main.Topbar.Search.Image = customAssets["IconMagnifyingGlass2"]
+	Chxlibrary.Main.Topbar.Search.ImageRectOffset = Vector2.new(0, 0)
+	Chxlibrary.Main.Topbar.Search.ImageRectSize = Vector2.new(0, 0)
+	Chxlibrary.Main.Elements.Template.Toggle.Switch.Shadow.Image = customAssets[tostring(3602733521)]
+	Chxlibrary.Main.Elements.Template.Slider.Main.Shadow.Image = customAssets[tostring(3602733521)]
+	Chxlibrary.Main.Elements.Template.Dropdown.Toggle.Image = customAssets["IconChevronTopMedium"]
+	Chxlibrary.Main.Elements.Template.Dropdown.Toggle.ImageRectOffset = Vector2.new(0, 0)
+	Chxlibrary.Main.Elements.Template.Dropdown.Toggle.ImageRectSize = Vector2.new(0, 0)
+	Chxlibrary.Main.Elements.Template.Label.Icon.Image = customAssets[tostring(11745872910)]
+	Chxlibrary.Main.Elements.Template.ColorPicker.CPBackground.MainCP.Image = customAssets[tostring(11413591840)]
+	Chxlibrary.Main.Elements.Template.ColorPicker.CPBackground.MainCP.MainPoint.Image = customAssets[tostring(3259050989)]
+	Chxlibrary.Main.Elements.Template.ColorPicker.ColorSlider.SliderPoint.Image = customAssets[tostring(3259050989)]
+	Chxlibrary.Main.TabList.Template.Image.Image = customAssets[tostring(4483362458)]
+	Chxlibrary.Main.Search.Search.Image = customAssets[tostring(18458939117)]
+	Chxlibrary.Main.Search.Shadow.Image = customAssets[tostring(5587865193)]
+	Chxlibrary.Notifications.Template.Icon.Image = customAssets[tostring(77891951053543)]
+	Chxlibrary.Notifications.Template.Shadow.Image = customAssets[tostring(3523728077)]
+	Chxlibrary.Loading.Banner.Image = customAssets[tostring(111263549366178)]
+
+end -- custom asset block
 
 local minSize = Vector2.new(1024, 768)
 local useMobileSizing
 
-if Rayfield.AbsoluteSize.X < minSize.X and Rayfield.AbsoluteSize.Y < minSize.Y then
+if Chxlibrary.AbsoluteSize.X < minSize.X and Chxlibrary.AbsoluteSize.Y < minSize.Y then
 	useMobileSizing = true
 end
 
+local useMobilePrompt = false
 if UserInputService.TouchEnabled then
 	useMobilePrompt = true
 end
@@ -725,20 +895,20 @@ end
 
 -- Object Variables
 
-local Main = Rayfield.Main
-local MPrompt = Rayfield:FindFirstChild('Prompt')
+local Main = Chxlibrary.Main
+local MPrompt = Chxlibrary:FindFirstChild('Prompt')
 local Topbar = Main.Topbar
 local Elements = Main.Elements
 local LoadingFrame = Main.LoadingFrame
 local TabList = Main.TabList
-local dragBar = Rayfield:FindFirstChild('Drag')
+local dragBar = Chxlibrary:FindFirstChild('Drag')
 local dragInteract = dragBar and dragBar.Interact or nil
 local dragBarCosmetic = dragBar and dragBar.Drag or nil
 
 local dragOffset = 255
 local dragOffsetMobile = 150
 
-Rayfield.DisplayOrder = 100
+Chxlibrary.DisplayOrder = 100
 LoadingFrame.Version.Text = Release
 
 -- Thanks to Latte Softworks for the Lucide integration for Roblox
@@ -747,31 +917,33 @@ local Icons = useStudio and require(script.Parent.icons) or loadWithTimeout('htt
 
 local CFileName = nil
 local CEnabled = false
+local Minimised = false
 local Hidden = false
 local Debounce = false
 local searchOpen = false
-local Notifications = Rayfield.Notifications
+local Notifications = Chxlibrary.Notifications
+local keybindConnections = {} -- For storing keybind connections to disconnect when Chxlibrary is destroyed
 
-local SelectedTheme = RayfieldLibrary.Theme.Default
+local SelectedTheme = Chxlibrary.Theme.Default
 
 local function ChangeTheme(Theme)
 	if typeof(Theme) == 'string' then
-		SelectedTheme = RayfieldLibrary.Theme[Theme]
+		SelectedTheme = Chxlibrary.Theme[Theme]
 	elseif typeof(Theme) == 'table' then
 		SelectedTheme = Theme
 	end
 
-	Rayfield.Main.BackgroundColor3 = SelectedTheme.Background
-	Rayfield.Main.Topbar.BackgroundColor3 = SelectedTheme.Topbar
-	Rayfield.Main.Topbar.CornerRepair.BackgroundColor3 = SelectedTheme.Topbar
-	Rayfield.Main.Shadow.Image.ImageColor3 = SelectedTheme.Shadow
+	Chxlibrary.Main.BackgroundColor3 = SelectedTheme.Background
+	Chxlibrary.Main.Topbar.BackgroundColor3 = SelectedTheme.Topbar
+	Chxlibrary.Main.Topbar.CornerRepair.BackgroundColor3 = SelectedTheme.Topbar
+	Chxlibrary.Main.Shadow.Image.ImageColor3 = SelectedTheme.Shadow
 
-	Rayfield.Main.Topbar.ChangeSize.ImageColor3 = SelectedTheme.TextColor
-	Rayfield.Main.Topbar.Hide.ImageColor3 = SelectedTheme.TextColor
-	Rayfield.Main.Topbar.Search.ImageColor3 = SelectedTheme.TextColor
+	Chxlibrary.Main.Topbar.ChangeSize.ImageColor3 = SelectedTheme.TextColor
+	Chxlibrary.Main.Topbar.Hide.ImageColor3 = SelectedTheme.TextColor
+	Chxlibrary.Main.Topbar.Search.ImageColor3 = SelectedTheme.TextColor
 	if Topbar:FindFirstChild('Settings') then
-		Rayfield.Main.Topbar.Settings.ImageColor3 = SelectedTheme.TextColor
-		Rayfield.Main.Topbar.Divider.BackgroundColor3 = SelectedTheme.ElementStroke
+		Chxlibrary.Main.Topbar.Settings.ImageColor3 = SelectedTheme.TextColor
+		Chxlibrary.Main.Topbar.Divider.BackgroundColor3 = SelectedTheme.ElementStroke
 	end
 
 	Main.Search.BackgroundColor3 = SelectedTheme.TextColor
@@ -784,7 +956,7 @@ local function ChangeTheme(Theme)
 		Main.Notice.BackgroundColor3 = SelectedTheme.Background
 	end
 
-	for _, text in ipairs(Rayfield:GetDescendants()) do
+	for _, text in ipairs(Chxlibrary:GetDescendants()) do
 		if text.Parent.Parent ~= Notifications then
 			if text:IsA('TextLabel') or text:IsA('TextBox') then text.TextColor3 = SelectedTheme.TextColor end
 		end
@@ -809,7 +981,7 @@ local function getIcon(name : string): {id: number, imageRectSize: Vector2, imag
 	local sizedicons = Icons['48px']
 	local r = sizedicons[name]
 	if not r then
-		error(`Lucide Icons: Failed to find icon by the name of "{name}"`, 2)
+		error("Lucide Icons: Failed to find icon by the name of \"" .. name .. "\"", 2)
 	end
 
 	local rirs = r[2]
@@ -830,17 +1002,42 @@ local function getIcon(name : string): {id: number, imageRectSize: Vector2, imag
 
 	return asset
 end
--- Converts ID to asset URI. Returns rbxassetid://0 if ID is not a number
 local function getAssetUri(id: any): string
-	local assetUri = "rbxassetid://0" -- Default to empty image
+	local assetUri = ""
 	if type(id) == "number" then
 		assetUri = "rbxassetid://" .. id
 	elseif type(id) == "string" and not Icons then
-		warn("Rayfield | Cannot use Lucide icons as icons library is not loaded")
+		warn("Chxlibrary | Cannot use Lucide icons as icons library is not loaded")
 	else
-		warn("Rayfield | The icon argument must either be an icon ID (number) or a Lucide icon name (string)")
+		warn("Chxlibrary | The icon argument must either be an icon ID (number) or a Lucide icon name (string)")
 	end
 	return assetUri
+end
+
+local function isCustomAsset(value)
+	return type(value) == "string" and (string.find(value, "rbxasset://") == 1 or string.find(value, "rbxthumb://") == 1)
+end
+
+local function resolveIcon(icon)
+	if not icon or icon == 0 then
+		return "", nil, nil
+	end
+
+	if isCustomAsset(icon) then
+		return icon, nil, nil
+	end
+
+	if secureMode then
+		secureNotify("icon_blocked", "Secure Mode", "Element icons using asset IDs or Lucide names are blocked. Use getcustomasset() for icons to stay undetected.")
+		return "", nil, nil
+	end
+
+	if typeof(icon) == "string" and Icons then
+		local asset = getIcon(icon)
+		return "rbxassetid://" .. asset.id, asset.imageRectOffset, asset.imageRectSize
+	else
+		return getAssetUri(icon), nil, nil
+	end
 end
 
 local function makeDraggable(object, dragObject, enableTaptic, tapticOffset)
@@ -892,8 +1089,6 @@ local function makeDraggable(object, dragObject, enableTaptic, tapticOffset)
 		if inputType == "MouseButton1" or inputType == "Touch" then
 			dragging = false
 
-			connectFunctions()
-
 			if enableTaptic and not Hidden then
 				TweenService:Create(dragBarCosmetic, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 100, 0, 4), BackgroundTransparency = 0.7}):Play()
 			end
@@ -934,10 +1129,10 @@ local function LoadConfiguration(Configuration)
 	local success, Data = pcall(function() return HttpService:JSONDecode(Configuration) end)
 	local changed
 
-	if not success then warn('Rayfield had an issue decoding the configuration file, please try delete the file and reopen Rayfield.') return end
+	if not success then warn('Chxlibrary had an issue decoding the configuration file, please try delete the file and reopen Chxlibrary.') return end
 
 	-- Iterate through current UI elements' flags
-	for FlagName, Flag in pairs(RayfieldLibrary.Flags) do
+	for FlagName, Flag in pairs(Chxlibrary.Flags) do
 		local FlagValue = Data[FlagName]
 
 		if (typeof(FlagValue) == 'boolean' and FlagValue == false) or FlagValue then
@@ -953,7 +1148,7 @@ local function LoadConfiguration(Configuration)
 				end
 			end)
 		else
-			warn("Rayfield | Unable to find '"..FlagName.. "' in the save file.")
+			warn("Chxlibrary | Unable to find '"..FlagName.. "' in the save file.")
 			print("The error above may not be an issue if new elements have been added or not been set values.")
 			--RayfieldLibrary:Notify({Title = "Rayfield Flags", Content = "Rayfield was unable to find '"..FlagName.. "' in the save file. Check sirius.menu/discord for help.", Image = 3944688398})
 		end
@@ -970,7 +1165,7 @@ local function SaveConfiguration()
 	end
 
 	local Data = {}
-	for i, v in pairs(RayfieldLibrary.Flags) do
+	for i, v in pairs(Chxlibrary.Flags) do
 		if v.Type == "ColorPicker" then
 			Data[i] = PackColor(v.Color)
 		else
@@ -1006,12 +1201,11 @@ local function SaveConfiguration()
 		warn(HttpService:JSONEncode(Data))
 	end
 
-	if writefile then
-		writefile(ConfigurationFolder .. "/" .. CFileName .. ConfigurationExtension, tostring(HttpService:JSONEncode(Data)))
-	end
+
+	callSafely(writefile, ConfigurationFolder .. "/" .. CFileName .. ConfigurationExtension, tostring(HttpService:JSONEncode(Data)))
 end
 
-function RayfieldLibrary:Notify(data) -- action e.g open messages
+function Chxlibrary:Notify(data) -- action e.g open messages
 	task.spawn(function()
 
 		-- Notification Object Creation
@@ -1026,17 +1220,12 @@ function RayfieldLibrary:Notify(data) -- action e.g open messages
 		newNotification.Description.Text = data.Content or "Unknown Content"
 
 		if data.Image then
-			if typeof(data.Image) == 'string' and Icons then
-				local asset = getIcon(data.Image)
-
-				newNotification.Icon.Image = 'rbxassetid://'..asset.id
-				newNotification.Icon.ImageRectOffset = asset.imageRectOffset
-				newNotification.Icon.ImageRectSize = asset.imageRectSize
-			else
-				newNotification.Icon.Image = getAssetUri(data.Image)
-			end
+			local img, rectOffset, rectSize = resolveIcon(data.Image)
+			newNotification.Icon.Image = img
+			if rectOffset then newNotification.Icon.ImageRectOffset = rectOffset end
+			if rectSize then newNotification.Icon.ImageRectSize = rectSize end
 		else
-			newNotification.Icon.Image = "rbxassetid://" .. 0
+			newNotification.Icon.Image = ""
 		end
 
 		-- Set initial transparency values
@@ -1061,7 +1250,7 @@ function RayfieldLibrary:Notify(data) -- action e.g open messages
 		newNotification.Visible = true
 
 		if data.Actions then
-			warn('Rayfield | Not seeing your actions in notifications?')
+			warn('Chxlibrary | Not seeing your actions in notifications?')
 			print("Notification Actions are being sunset for now, keep up to date on when they're back in the discord. (sirius.menu/discord)")
 		end
 
@@ -1172,6 +1361,63 @@ local function closeSearch()
 	Main.Search.Input.Interactable = false
 end
 
+-- Sets element visibility across all tab pages (used by Hide, Unhide, Maximise, Minimise)
+local function setElementsVisible(show)
+	for _, tab in ipairs(Elements:GetChildren()) do
+		if tab.Name ~= "Template" and tab.ClassName == "ScrollingFrame" and tab.Name ~= "Placeholder" then
+			for _, element in ipairs(tab:GetChildren()) do
+				if element.ClassName == "Frame" then
+					if element.Name ~= "SectionSpacing" and element.Name ~= "Placeholder" then
+						if element.Name == "SectionTitle" or element.Name == 'SearchTitle-fsefsefesfsefesfesfThanks' then
+							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = show and 0.4 or 1}):Play()
+						elseif element.Name == 'Divider' then
+							TweenService:Create(element.Divider, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = show and 0.85 or 1}):Play()
+						else
+							local bgTarget = element:GetAttribute("BackgroundTransparencyTarget") or 0
+							local strokeTarget = element:GetAttribute("UIStrokeTransparencyTarget") or 0
+							local titleTarget = element:GetAttribute("TitleTextTransparencyTarget") or 0
+							TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = show and bgTarget or 1}):Play()
+							TweenService:Create(element.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = show and strokeTarget or 1}):Play()
+							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = show and titleTarget or 1}):Play()
+						end
+						for _, child in ipairs(element:GetChildren()) do
+							if child.ClassName == "Frame" or child.ClassName == "TextLabel" or child.ClassName == "TextBox" or child.ClassName == "ImageButton" or child.ClassName == "ImageLabel" then
+								child.Visible = show
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+-- Sets tab button visibility (used by Hide, Unhide, Maximise, Minimise)
+local function setTabButtonsVisible(show)
+	for _, tabbtn in ipairs(TabList:GetChildren()) do
+		if tabbtn.ClassName == "Frame" and tabbtn.Name ~= "Placeholder" then
+			if show then
+				if tostring(Elements.UIPageLayout.CurrentPage) == tabbtn.Title.Text then
+					TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
+					TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 0}):Play()
+					TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0}):Play()
+					TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+				else
+					TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0.7}):Play()
+					TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 0.2}):Play()
+					TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0.2}):Play()
+					TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 0.5}):Play()
+				end
+			else
+				TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
+				TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+				TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
+				TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+			end
+		end
+	end
+end
+
 local function Hide(notify: boolean?)
 	if MPrompt then
 		MPrompt.Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1187,9 +1433,9 @@ local function Hide(notify: boolean?)
 	Debounce = true
 	if notify then
 		if useMobilePrompt then 
-			RayfieldLibrary:Notify({Title = "Interface Hidden", Content = "The interface has been hidden, you can unhide the interface by tapping 'Show'.", Duration = 7, Image = 4400697855})
+			Chxlibrary:Notify({Title = "Interface Hidden", Content = "The interface has been hidden, you can unhide the interface by tapping 'Show'.", Duration = 7, Image = 4400697855})
 		else
-			RayfieldLibrary:Notify({Title = "Interface Hidden", Content = `The interface has been hidden, you can unhide the interface by tapping {getSetting("General", "ChxOpen")}.`, Duration = 7, Image = 4400697855})
+			Chxlibrary:Notify({Title = "Interface Hidden", Content = "The interface has been hidden, you can unhide the interface by tapping " .. tostring(getSetting("General", "rayfieldOpen")) .. ".", Duration = 7, Image = 4400697855})
 		end
 	end
 
@@ -1202,7 +1448,9 @@ local function Hide(notify: boolean?)
 	TweenService:Create(Main.Topbar.Title, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
 	TweenService:Create(Main.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
 	TweenService:Create(Topbar.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-	TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+	if dragBarCosmetic then
+		TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+	end
 
 	if useMobilePrompt and MPrompt then
 		TweenService:Create(MPrompt, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 120, 0, 30), Position = UDim2.new(0.5, 0, 0, 20), BackgroundTransparency = 0.3}):Play()
@@ -1215,41 +1463,11 @@ local function Hide(notify: boolean?)
 		end
 	end
 
-	for _, tabbtn in ipairs(TabList:GetChildren()) do
-		if tabbtn.ClassName == "Frame" and tabbtn.Name ~= "Placeholder" then
-			TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-			TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-			TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
-			TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-		end
-	end
+	setTabButtonsVisible(false)
 
-	dragInteract.Visible = false
+	if dragInteract then dragInteract.Visible = false end
 
-	for _, tab in ipairs(Elements:GetChildren()) do
-		if tab.Name ~= "Template" and tab.ClassName == "ScrollingFrame" and tab.Name ~= "Placeholder" then
-			for _, element in ipairs(tab:GetChildren()) do
-				if element.ClassName == "Frame" then
-					if element.Name ~= "SectionSpacing" and element.Name ~= "Placeholder" then
-						if element.Name == "SectionTitle" or element.Name == 'SearchTitle-fsefsefesfsefesfesfThanks' then
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						elseif element.Name == 'Divider' then
-							TweenService:Create(element.Divider, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-						else
-							TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-							TweenService:Create(element.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						end
-						for _, child in ipairs(element:GetChildren()) do
-							if child.ClassName == "Frame" or child.ClassName == "TextLabel" or child.ClassName == "TextBox" or child.ClassName == "ImageButton" or child.ClassName == "ImageLabel" then
-								child.Visible = false
-							end
-						end
-					end
-				end
-			end
-		end
-	end
+	setElementsVisible(false)
 
 	task.wait(0.5)
 	Main.Visible = false
@@ -1258,7 +1476,7 @@ end
 
 local function Maximise()
 	Debounce = true
-	Topbar.ChangeSize.Image = "rbxassetid://"..10137941941
+	Topbar.ChangeSize.Image = customAssets[tostring(10137941941)]
 
 	TweenService:Create(Topbar.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
 	TweenService:Create(Main.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {ImageTransparency = 0.6}):Play()
@@ -1272,49 +1490,11 @@ local function Maximise()
 
 	Elements.Visible = true
 
-	for _, tab in ipairs(Elements:GetChildren()) do
-		if tab.Name ~= "Template" and tab.ClassName == "ScrollingFrame" and tab.Name ~= "Placeholder" then
-			for _, element in ipairs(tab:GetChildren()) do
-				if element.ClassName == "Frame" then
-					if element.Name ~= "SectionSpacing" and element.Name ~= "Placeholder" then
-						if element.Name == "SectionTitle" or element.Name == 'SearchTitle-fsefsefesfsefesfesfThanks' then
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0.4}):Play()
-						elseif element.Name == 'Divider' then
-							TweenService:Create(element.Divider, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0.85}):Play()
-						else
-							TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
-							TweenService:Create(element.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0}):Play()
-						end
-						for _, child in ipairs(element:GetChildren()) do
-							if child.ClassName == "Frame" or child.ClassName == "TextLabel" or child.ClassName == "TextBox" or child.ClassName == "ImageButton" or child.ClassName == "ImageLabel" then
-								child.Visible = true
-							end
-						end
-					end
-				end
-			end
-		end
-	end
+	setElementsVisible(true)
 
 	task.wait(0.1)
 
-	for _, tabbtn in ipairs(TabList:GetChildren()) do
-		if tabbtn.ClassName == "Frame" and tabbtn.Name ~= "Placeholder" then
-			if tostring(Elements.UIPageLayout.CurrentPage) == tabbtn.Title.Text then
-				TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
-				TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 0}):Play()
-				TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0}):Play()
-				TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-			else
-				TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0.7}):Play()
-				TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 0.2}):Play()
-				TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0.2}):Play()
-				TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 0.5}):Play()
-			end
-
-		end
-	end
+	setTabButtonsVisible(true)
 
 	task.wait(0.5)
 	Debounce = false
@@ -1363,46 +1543,9 @@ local function Unhide()
 		end
 	end
 
-	for _, tabbtn in ipairs(TabList:GetChildren()) do
-		if tabbtn.ClassName == "Frame" and tabbtn.Name ~= "Placeholder" then
-			if tostring(Elements.UIPageLayout.CurrentPage) == tabbtn.Title.Text then
-				TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
-				TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0}):Play()
-				TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 0}):Play()
-				TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-			else
-				TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0.7}):Play()
-				TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 0.2}):Play()
-				TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0.2}):Play()
-				TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 0.5}):Play()
-			end
-		end
-	end
+	setTabButtonsVisible(true)
 
-	for _, tab in ipairs(Elements:GetChildren()) do
-		if tab.Name ~= "Template" and tab.ClassName == "ScrollingFrame" and tab.Name ~= "Placeholder" then
-			for _, element in ipairs(tab:GetChildren()) do
-				if element.ClassName == "Frame" then
-					if element.Name ~= "SectionSpacing" and element.Name ~= "Placeholder" then
-						if element.Name == "SectionTitle" or element.Name == 'SearchTitle-fsefsefesfsefesfesfThanks' then
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0.4}):Play()
-						elseif element.Name == 'Divider' then
-							TweenService:Create(element.Divider, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0.85}):Play()
-						else
-							TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
-							TweenService:Create(element.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 0}):Play()
-						end
-						for _, child in ipairs(element:GetChildren()) do
-							if child.ClassName == "Frame" or child.ClassName == "TextLabel" or child.ClassName == "TextBox" or child.ClassName == "ImageButton" or child.ClassName == "ImageLabel" then
-								child.Visible = true
-							end
-						end
-					end
-				end
-			end
-		end
-	end
+	setElementsVisible(true)
 
 	TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 0.5}):Play()
 
@@ -1413,45 +1556,15 @@ end
 
 local function Minimise()
 	Debounce = true
-	Topbar.ChangeSize.Image = "rbxassetid://"..11036884234
+	Topbar.ChangeSize.Image = customAssets[tostring(11036884234)]
 
 	Topbar.UIStroke.Color = SelectedTheme.ElementStroke
 
 	task.spawn(closeSearch)
 
-	for _, tabbtn in ipairs(TabList:GetChildren()) do
-		if tabbtn.ClassName == "Frame" and tabbtn.Name ~= "Placeholder" then
-			TweenService:Create(tabbtn, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-			TweenService:Create(tabbtn.Image, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
-			TweenService:Create(tabbtn.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-			TweenService:Create(tabbtn.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-		end
-	end
+	setTabButtonsVisible(false)
 
-	for _, tab in ipairs(Elements:GetChildren()) do
-		if tab.Name ~= "Template" and tab.ClassName == "ScrollingFrame" and tab.Name ~= "Placeholder" then
-			for _, element in ipairs(tab:GetChildren()) do
-				if element.ClassName == "Frame" then
-					if element.Name ~= "SectionSpacing" and element.Name ~= "Placeholder" then
-						if element.Name == "SectionTitle" or element.Name == 'SearchTitle-fsefsefesfsefesfesfThanks' then
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						elseif element.Name == 'Divider' then
-							TweenService:Create(element.Divider, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-						else
-							TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-							TweenService:Create(element.UIStroke, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-							TweenService:Create(element.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						end
-						for _, child in ipairs(element:GetChildren()) do
-							if child.ClassName == "Frame" or child.ClassName == "TextLabel" or child.ClassName == "TextBox" or child.ClassName == "ImageButton" or child.ClassName == "ImageLabel" then
-								child.Visible = false
-							end
-						end
-					end
-				end
-			end
-		end
-	end
+	setElementsVisible(false)
 
 	TweenService:Create(dragBarCosmetic, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
 	TweenService:Create(Topbar.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
@@ -1470,10 +1583,6 @@ local function Minimise()
 	Debounce = false
 end
 
-
-
-
-
 local function saveSettings() -- Save settings to config file
 	local encoded
 	local success, err = pcall(function()
@@ -1486,9 +1595,7 @@ local function saveSettings() -- Save settings to config file
 				script.Parent['get.val'].Value = encoded
 			end
 		end
-		if writefile then
-			writefile(RayfieldFolder..'/settings'..ConfigurationExtension, encoded)
-		end
+		callSafely(writefile, ChxlibraryFolder..'/settings'..ConfigurationExtension, encoded)
 	end
 end
 
@@ -1497,7 +1604,7 @@ local function updateSetting(category: string, setting: string, value: any)
 		return
 	end
 	settingsTable[category][setting].Value = value
-	overriddenSettings[`{category}.{setting}`] = nil -- If user changes an overriden setting, remove the override
+	overriddenSettings[category .. "." .. setting] = nil -- If user changes an overriden setting, remove the override
 	saveSettings()
 end
 
@@ -1509,14 +1616,14 @@ local function createSettings(window)
 		return
 	end
 
-	local newTab = window:CreateTab('Settings', 0, true)
+	local newTab = window:CreateTab('Chxlibrary Settings', 0, true)
 
-	if TabList['Rayfield Settings'] then
-		TabList['Rayfield Settings'].LayoutOrder = 1000
+	if TabList['Chxlibrary Settings'] then
+		TabList['Chxlibrary Settings'].LayoutOrder = 1000
 	end
 
-	if Elements['Rayfield Settings'] then
-		Elements['Rayfield Settings'].LayoutOrder = 1000
+	if Elements['Chxlibrary Settings'] then
+		Elements['Chxlibrary Settings'].LayoutOrder = 1000
 	end
 
 	-- Create sections and elements
@@ -1564,17 +1671,29 @@ local function createSettings(window)
 	saveSettings()
 end
 
+local function fadeOutKeyUI(KeyMain)
+	TweenService:Create(KeyMain, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
+	TweenService:Create(KeyMain, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 467, 0, 175)}):Play()
+	TweenService:Create(KeyMain.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
+	TweenService:Create(KeyMain.Title, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+	TweenService:Create(KeyMain.Subtitle, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+	TweenService:Create(KeyMain.KeyNote, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+	TweenService:Create(KeyMain.Input, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
+	TweenService:Create(KeyMain.Input.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+	TweenService:Create(KeyMain.Input.InputBox, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+	TweenService:Create(KeyMain.NoteTitle, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+	TweenService:Create(KeyMain.NoteMessage, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+	TweenService:Create(KeyMain.Hide, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
+end
 
-
-function RayfieldLibrary:CreateWindow(Settings)
-	print('creating window')
-	if Rayfield:FindFirstChild('Loading') then
+function Chxlibrary:CreateWindow(Settings)
+	if Chxlibrary:FindFirstChild('Loading') then
 		if getgenv and not getgenv().rayfieldCached then
-			Rayfield.Enabled = true
-			Rayfield.Loading.Visible = true
+			Chxlibrary.Enabled = true
+			Chxlibrary.Loading.Visible = true
 
 			task.wait(1.4)
-			Rayfield.Loading.Visible = false
+			Chxlibrary.Loading.Visible = false
 		end
 	end
 
@@ -1583,7 +1702,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 	if not correctBuild and not Settings.DisableBuildWarnings then
 		task.delay(3, 
 			function() 
-				RayfieldLibrary:Notify({Title = 'Build Mismatch', Content = 'Rayfield may encounter issues as you are running an incompatible interface version ('.. ((Rayfield:FindFirstChild('Build') and Rayfield.Build.Value) or 'No Build') ..').\n\nThis version of Rayfield is intended for interface build '..InterfaceBuild..'.\n\nTry rejoining and then run the script twice.', Image = 4335487866, Duration = 15})		
+				Chxlibrary:Notify({Title = 'Build Mismatch', Content = 'Chxlibrary may encounter issues as you are running an incompatible interface version ('.. ((Chxlibrary:FindFirstChild('Build') and Chxlibrary.Build.Value) or 'No Build') ..').\n\nThis version of Chxlibrary is intended for interface build '..InterfaceBuild..'.\n\nTry rejoining and then run the script twice.', Image = 4335487866, Duration = 15})		
 			end)
 	end
 
@@ -1603,14 +1722,8 @@ function RayfieldLibrary:CreateWindow(Settings)
 		end
 	end
 
-	if isfolder and not isfolder(RayfieldFolder) then
-		makefolder(RayfieldFolder)
-	end
+	ensureFolder(ChxlibraryFolder)
 
-	-- Attempt to report an event to analytics
-	if not requestsDisabled then
-		sendReport("window_created", Settings.Name or "Unknown")
-	end
 	local Passthrough = false
 	Topbar.Title.Text = Settings.Name
 
@@ -1628,11 +1741,11 @@ function RayfieldLibrary:CreateWindow(Settings)
 	end
 
 	LoadingFrame.Version.TextTransparency = 1
-	LoadingFrame.Title.Text = Settings.LoadingTitle or "Rayfield"
+	LoadingFrame.Title.Text = Settings.LoadingTitle or "Chxlibrary"
 	LoadingFrame.Subtitle.Text = Settings.LoadingSubtitle or "Interface Suite"
 
-	if Settings.LoadingTitle ~= "Rayfield Interface Suite" then
-		LoadingFrame.Version.Text = "Chx UI"
+	if Settings.LoadingTitle ~= "Chxlibrary Interface Suite" then
+		LoadingFrame.Version.Text = "Chxlibrary UI"
 	end
 
 	if Settings.Icon and Settings.Icon ~= 0 and Topbar:FindFirstChild('Icon') then
@@ -1640,17 +1753,12 @@ function RayfieldLibrary:CreateWindow(Settings)
 		Topbar.Title.Position = UDim2.new(0, 47, 0.5, 0)
 
 		if Settings.Icon then
-			if typeof(Settings.Icon) == 'string' and Icons then
-				local asset = getIcon(Settings.Icon)
-
-				Topbar.Icon.Image = 'rbxassetid://'..asset.id
-				Topbar.Icon.ImageRectOffset = asset.imageRectOffset
-				Topbar.Icon.ImageRectSize = asset.imageRectSize
-			else
-				Topbar.Icon.Image = getAssetUri(Settings.Icon)
-			end
+			local img, rectOffset, rectSize = resolveIcon(Settings.Icon)
+			Topbar.Icon.Image = img
+			if rectOffset then Topbar.Icon.ImageRectOffset = rectOffset end
+			if rectSize then Topbar.Icon.ImageRectSize = rectSize end
 		else
-			Topbar.Icon.Image = "rbxassetid://" .. 0
+			Topbar.Icon.Image = ""
 		end
 	end
 
@@ -1677,19 +1785,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 	Elements.Visible = false
 	LoadingFrame.Visible = true
 
-	if not Settings.DisableRayfieldPrompts then
-		task.spawn(function()
-			while true do
-				task.wait(math.random(180, 600))
-				RayfieldLibrary:Notify({
-					Title = "Rayfield Interface",
-					Content = "Enjoying this UI library? Find it at sirius.menu/discord",
-					Duration = 7,
-					Image = 4370033185,
-				})
-			end
-		end)
-	end
+	-- Promo notification removed
 
 	pcall(function()
 		if not Settings.ConfigurationSaving.FileName then
@@ -1705,9 +1801,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 		CEnabled = Settings.ConfigurationSaving.Enabled
 
 		if Settings.ConfigurationSaving.Enabled then
-			if not isfolder(ConfigurationFolder) then
-				makefolder(ConfigurationFolder)
-			end	
+			ensureFolder(ConfigurationFolder)
 		end
 	end)
 
@@ -1724,12 +1818,10 @@ function RayfieldLibrary:CreateWindow(Settings)
 		end
 	end
 
-	if Settings.Discord and Settings.Discord.Enabled and not useStudio then
-		if isfolder and not isfolder(RayfieldFolder.."/Discord Invites") then
-			makefolder(RayfieldFolder.."/Discord Invites")
-		end
+	if Settings.Discord and Settings.Discord.Enabled and not useStudio and not secureMode then
+		ensureFolder(ChxlibraryFolder.."/Discord Invites")
 
-		if isfile and not isfile(RayfieldFolder.."/Discord Invites".."/"..Settings.Discord.Invite..ConfigurationExtension) then
+		if not callSafely(isfile, ChxlibraryFolder.."/Discord Invites".."/"..Settings.Discord.Invite..ConfigurationExtension) then
 			if requestFunc then
 				pcall(function()
 					requestFunc({
@@ -1749,7 +1841,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 			end
 
 			if Settings.Discord.RememberJoins then -- We do logic this way so if the developer changes this setting, the user still won't be prompted, only new users
-				writefile(RayfieldFolder.."/Discord Invites".."/"..Settings.Discord.Invite..ConfigurationExtension,"Rayfield RememberJoins is true for this invite, this invite will not ask you to join again")
+				callSafely(writefile, ChxlibraryFolder.."/Discord Invites".."/"..Settings.Discord.Invite..ConfigurationExtension,"Chxlibrary RememberJoins is true for this invite, this invite will not ask you to join again")
 			end
 		end
 	end
@@ -1760,9 +1852,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 			return
 		end
 
-		if isfolder and not isfolder(RayfieldFolder.."/Key System") then
-			makefolder(RayfieldFolder.."/Key System")
-		end
+		ensureFolder(ChxlibraryFolder.."/Key System")
 
 		if typeof(Settings.KeySettings.Key) == "string" then Settings.KeySettings.Key = {Settings.KeySettings.Key} end
 
@@ -1773,7 +1863,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 					Settings.KeySettings.Key[i] = string.gsub(Settings.KeySettings.Key[i], " ", "")
 				end)
 				if not Success then
-					print("Rayfield | "..Key.." Error " ..tostring(Response))
+					print("Chxlibrary | "..Key.." Error " ..tostring(Response))
 					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 				end
 			end
@@ -1783,17 +1873,24 @@ function RayfieldLibrary:CreateWindow(Settings)
 			Settings.KeySettings.FileName = "No file name specified"
 		end
 
-		if isfile and isfile(RayfieldFolder.."/Key System".."/"..Settings.KeySettings.FileName..ConfigurationExtension) then
+		if callSafely(isfile, ChxlibraryFolder.."/Key System".."/"..Settings.KeySettings.FileName..ConfigurationExtension) then
 			for _, MKey in ipairs(Settings.KeySettings.Key) do
-				if string.find(readfile(RayfieldFolder.."/Key System".."/"..Settings.KeySettings.FileName..ConfigurationExtension), MKey) then
+				local savedKeys = callSafely(readfile, ChxlibraryFolder.."/Key System".."/"..Settings.KeySettings.FileName..ConfigurationExtension)
+				if savedKeys and string.find(savedKeys, MKey) then
 					Passthrough = true
 				end
 			end
 		end
 
+		if not Passthrough and secureMode then
+			warn("Chxlibrary | Secure Mode: Key system requires a valid saved key. The key UI cannot be shown as it requires loading detectable assets.")
+			Chxlibrary.Enabled = false
+			return Chxlibrary
+		end
+
 		if not Passthrough then
-			local AttemptsRemaining = math.random(2, 5)
-			Rayfield.Enabled = false
+			local AttemptsRemaining = Settings.KeySettings.MaxAttempts or 5
+			Chxlibrary.Enabled = false
 			local KeyUI = useStudio and script.Parent:FindFirstChild('Key') or game:GetObjects("rbxassetid://11380036235")[1]
 
 			KeyUI.Enabled = true
@@ -1878,42 +1975,18 @@ function RayfieldLibrary:CreateWindow(Settings)
 						FoundKey = MKey
 					end
 				end
-				if KeyFound then 
-					TweenService:Create(KeyMain, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-					TweenService:Create(KeyMain, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 467, 0, 175)}):Play()
-					TweenService:Create(KeyMain.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
-					TweenService:Create(KeyMain.Title, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-					TweenService:Create(KeyMain.Subtitle, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-					TweenService:Create(KeyMain.KeyNote, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-					TweenService:Create(KeyMain.Input, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-					TweenService:Create(KeyMain.Input.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-					TweenService:Create(KeyMain.Input.InputBox, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-					TweenService:Create(KeyMain.NoteTitle, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-					TweenService:Create(KeyMain.NoteMessage, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-					TweenService:Create(KeyMain.Hide, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
+				if KeyFound then
+					fadeOutKeyUI(KeyMain)
 					task.wait(0.51)
 					Passthrough = true
 					KeyMain.Visible = false
 					if Settings.KeySettings.SaveKey then
-						if writefile then
-							writefile(RayfieldFolder.."/Key System".."/"..Settings.KeySettings.FileName..ConfigurationExtension, FoundKey)
-						end
-						RayfieldLibrary:Notify({Title = "Key System", Content = "The key for this script has been saved successfully.", Image = 3605522284})
+						callSafely(writefile, ChxlibraryFolder.."/Key System".."/"..Settings.KeySettings.FileName..ConfigurationExtension, FoundKey)
+						Chxlibrary:Notify({Title = "Key System", Content = "The key for this script has been saved successfully.", Image = 3605522284})
 					end
 				else
 					if AttemptsRemaining == 0 then
-						TweenService:Create(KeyMain, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-						TweenService:Create(KeyMain, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 467, 0, 175)}):Play()
-						TweenService:Create(KeyMain.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
-						TweenService:Create(KeyMain.Title, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						TweenService:Create(KeyMain.Subtitle, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						TweenService:Create(KeyMain.KeyNote, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						TweenService:Create(KeyMain.Input, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-						TweenService:Create(KeyMain.Input.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-						TweenService:Create(KeyMain.Input.InputBox, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						TweenService:Create(KeyMain.NoteTitle, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						TweenService:Create(KeyMain.NoteMessage, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-						TweenService:Create(KeyMain.Hide, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
+						fadeOutKeyUI(KeyMain)
 						task.wait(0.45)
 						Players.LocalPlayer:Kick("No Attempts Remaining")
 						game:Shutdown()
@@ -1931,20 +2004,10 @@ function RayfieldLibrary:CreateWindow(Settings)
 			end)
 
 			KeyMain.Hide.MouseButton1Click:Connect(function()
-				TweenService:Create(KeyMain, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-				TweenService:Create(KeyMain, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Size = UDim2.new(0, 467, 0, 175)}):Play()
-				TweenService:Create(KeyMain.Shadow.Image, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
-				TweenService:Create(KeyMain.Title, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-				TweenService:Create(KeyMain.Subtitle, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-				TweenService:Create(KeyMain.KeyNote, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-				TweenService:Create(KeyMain.Input, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {BackgroundTransparency = 1}):Play()
-				TweenService:Create(KeyMain.Input.UIStroke, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
-				TweenService:Create(KeyMain.Input.InputBox, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-				TweenService:Create(KeyMain.NoteTitle, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-				TweenService:Create(KeyMain.NoteMessage, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
-				TweenService:Create(KeyMain.Hide, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {ImageTransparency = 1}):Play()
+				fadeOutKeyUI(KeyMain)
 				task.wait(0.51)
-				RayfieldLibrary:Destroy()
+				Passthrough = true
+				Chxlibrary:Destroy()
 				KeyUI:Destroy()
 			end)
 		else
@@ -1953,11 +2016,12 @@ function RayfieldLibrary:CreateWindow(Settings)
 	end
 	if Settings.KeySystem then
 		repeat task.wait() until Passthrough
+		if rayfieldDestroyed then return end
 	end
 
 	Notifications.Template.Visible = false
 	Notifications.Visible = true
-	Rayfield.Enabled = true
+	Chxlibrary.Enabled = true
 
 	task.wait(0.5)
 	TweenService:Create(Main, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
@@ -1974,6 +2038,9 @@ function RayfieldLibrary:CreateWindow(Settings)
 	Elements.Template.Visible = false
 
 	Elements.UIPageLayout.FillDirection = Enum.FillDirection.Horizontal
+	Elements.UIPageLayout.ScrollWheelInputEnabled = false
+	Elements.UIPageLayout.GamepadInputEnabled = false
+	Elements.UIPageLayout.TouchInputEnabled = false
 	TabList.Template.Visible = false
 
 	-- Tab
@@ -1989,15 +2056,10 @@ function RayfieldLibrary:CreateWindow(Settings)
 		TabButton.Size = UDim2.new(0, TabButton.Title.TextBounds.X + 30, 0, 30)
 
 		if Image and Image ~= 0 then
-			if typeof(Image) == 'string' and Icons then
-				local asset = getIcon(Image)
-
-				TabButton.Image.Image = 'rbxassetid://'..asset.id
-				TabButton.Image.ImageRectOffset = asset.imageRectOffset
-				TabButton.Image.ImageRectSize = asset.imageRectSize
-			else
-				TabButton.Image.Image = getAssetUri(Image)
-			end
+			local img, rectOffset, rectSize = resolveIcon(Image)
+			TabButton.Image.Image = img
+			if rectOffset then TabButton.Image.ImageRectOffset = rectOffset end
+			if rectSize then TabButton.Image.ImageRectSize = rectSize end
 
 			TabButton.Title.AnchorPoint = Vector2.new(0, 0.5)
 			TabButton.Title.Position = UDim2.new(0, 37, 0.5, 0)
@@ -2020,7 +2082,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 		TabPage.Name = Name
 		TabPage.Visible = true
 
-		TabPage.LayoutOrder = #Elements:GetChildren() or Ext and 10000
+		TabPage.LayoutOrder = Ext and 10000 or #Elements:GetChildren()
 
 		for _, TemplateElement in ipairs(TabPage:GetChildren()) do
 			if TemplateElement.ClassName == "Frame" and TemplateElement.Name ~= "Placeholder" then
@@ -2119,12 +2181,19 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 			Button.Interact.MouseButton1Click:Connect(function()
 				local Success, Response = pcall(ButtonSettings.Callback)
-				-- Prevents animation from trying to play if the button's callback called RayfieldLibrary:Destroy()
+				-- Prevents animation from trying to play if the button's callback called Chxlibrary:Destroy()
 				if rayfieldDestroyed then
 					return
 				end
 				if not Success then
+					TweenService:Create(Button, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Button.ElementIndicator, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
+					TweenService:Create(Button.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Button.Title.Text = "Callback Error"
+					print("Chxlibrary | "..ButtonSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Button.Title.Text = ButtonSettings.Name
 					TweenService:Create(Button, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Button.ElementIndicator, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {TextTransparency = 0.9}):Play()
 					TweenService:Create(Button.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
@@ -2196,7 +2265,6 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 			local opened = false 
 			local mouse = Players.LocalPlayer:GetMouse()
-			Main.Image = "http://www.roblox.com/asset/?id=11415645739"
 			local mainDragging = false 
 			local sliderDragging = false 
 			ColorPicker.Interact.MouseButton1Down:Connect(function()
@@ -2220,7 +2288,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 					TweenService:Create(ColorPicker.HexInput, TweenInfo.new(0.5, Enum.EasingStyle.Exponential), {Position = UDim2.new(0, 17, 0, 73)}):Play()
 					TweenService:Create(ColorPicker.Interact, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Size = UDim2.new(0.574, 0, 1, 0)}):Play()
 					TweenService:Create(Main.MainPoint, TweenInfo.new(0.2, Enum.EasingStyle.Exponential), {ImageTransparency = 0}):Play()
-					TweenService:Create(Main, TweenInfo.new(0.2, Enum.EasingStyle.Exponential), {ImageTransparency = SelectedTheme ~= RayfieldLibrary.Theme.Default and 0.25 or 0.1}):Play()
+					TweenService:Create(Main, TweenInfo.new(0.2, Enum.EasingStyle.Exponential), {ImageTransparency = SelectedTheme ~= Chxlibrary.Theme.Default and 0.25 or 0.1}):Play()
 					TweenService:Create(Background, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundTransparency = 0}):Play()
 				else
 					opened = false
@@ -2238,7 +2306,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 			end)
 
-			UserInputService.InputEnded:Connect(function(input, gameProcessed) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+			local colorPickerInputConnection = UserInputService.InputEnded:Connect(function(input, gameProcessed) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 					mainDragging = false
 					sliderDragging = false
 				end end)
@@ -2334,8 +2402,8 @@ function RayfieldLibrary:CreateWindow(Settings)
 				pcall(function()ColorPickerSettings.Callback(Color3.fromHSV(h,s,v))end)
 			end)
 
-			RunService.RenderStepped:connect(function()
-				if mainDragging then 
+			local colorPickerRenderConnection = RunService.RenderStepped:connect(function()
+				if mainDragging then
 					local localX = math.clamp(mouse.X-Main.AbsolutePosition.X,0,Main.AbsoluteSize.X)
 					local localY = math.clamp(mouse.Y-Main.AbsolutePosition.Y,0,Main.AbsoluteSize.Y)
 					Main.MainPoint.Position = UDim2.new(0,localX-Main.MainPoint.AbsoluteSize.X/2,0,localY-Main.MainPoint.AbsoluteSize.Y/2)
@@ -2378,9 +2446,18 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end
 			end)
 
+			ColorPicker.Destroying:Connect(function()
+				if colorPickerRenderConnection then
+					colorPickerRenderConnection:Disconnect()
+				end
+				if colorPickerInputConnection then
+					colorPickerInputConnection:Disconnect()
+				end
+			end)
+
 			if Settings.ConfigurationSaving then
 				if Settings.ConfigurationSaving.Enabled and ColorPickerSettings.Flag then
-					RayfieldLibrary.Flags[ColorPickerSettings.Flag] = ColorPickerSettings
+					Chxlibrary.Flags[ColorPickerSettings.Flag] = ColorPickerSettings
 				end
 			end
 
@@ -2399,7 +2476,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 				TweenService:Create(ColorPicker, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 			end)
 
-			Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+			Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
 				for _, rgbinput in ipairs(ColorPicker.RGB:GetChildren()) do
 					if rgbinput:IsA("Frame") then
 						rgbinput.BackgroundColor3 = SelectedTheme.InputBackground
@@ -2473,37 +2550,17 @@ function RayfieldLibrary:CreateWindow(Settings)
 			Label.UIStroke.Color = Color or SelectedTheme.SecondaryElementStroke
 
 			if Icon then
-				if typeof(Icon) == 'string' and Icons then
-					local asset = getIcon(Icon)
-
-					Label.Icon.Image = 'rbxassetid://'..asset.id
-					Label.Icon.ImageRectOffset = asset.imageRectOffset
-					Label.Icon.ImageRectSize = asset.imageRectSize
-				else
-					Label.Icon.Image = getAssetUri(Icon)
-				end
+				local img, rectOffset, rectSize = resolveIcon(Icon)
+				Label.Icon.Image = img
+				if rectOffset then Label.Icon.ImageRectOffset = rectOffset end
+				if rectSize then Label.Icon.ImageRectSize = rectSize end
 			else
-				Label.Icon.Image = "rbxassetid://" .. 0
+				Label.Icon.Image = ""
 			end
 
 			if Icon and Label:FindFirstChild('Icon') then
 				Label.Title.Position = UDim2.new(0, 45, 0.5, 0)
 				Label.Title.Size = UDim2.new(1, -100, 0, 14)
-
-				if Icon then
-					if typeof(Icon) == 'string' and Icons then
-						local asset = getIcon(Icon)
-
-						Label.Icon.Image = 'rbxassetid://'..asset.id
-						Label.Icon.ImageRectOffset = asset.imageRectOffset
-						Label.Icon.ImageRectSize = asset.imageRectSize
-					else
-						Label.Icon.Image = getAssetUri(Icon)
-					end
-				else
-					Label.Icon.Image = "rbxassetid://" .. 0
-				end
-
 				Label.Icon.Visible = true
 			end
 
@@ -2512,10 +2569,14 @@ function RayfieldLibrary:CreateWindow(Settings)
 			Label.UIStroke.Transparency = 1
 			Label.Title.TextTransparency = 1
 
+			Label:SetAttribute("BackgroundTransparencyTarget", Color and 0.8 or 0)
+			Label:SetAttribute("UIStrokeTransparencyTarget", Color and 0.7 or 0)
+			Label:SetAttribute("TitleTextTransparencyTarget", Color and 0.2 or 0)
+
 			TweenService:Create(Label, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {BackgroundTransparency = Color and 0.8 or 0}):Play()
 			TweenService:Create(Label.UIStroke, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {Transparency = Color and 0.7 or 0}):Play()
 			TweenService:Create(Label.Icon, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {ImageTransparency = 0.2}):Play()
-			TweenService:Create(Label.Title, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {TextTransparency = Color and 0.2 or 0}):Play()	
+			TweenService:Create(Label.Title, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {TextTransparency = Color and 0.2 or 0}):Play()
 
 			function LabelValue:Set(NewLabel, Icon, Color)
 				Label.Title.Text = NewLabel
@@ -2529,25 +2590,16 @@ function RayfieldLibrary:CreateWindow(Settings)
 					Label.Title.Position = UDim2.new(0, 45, 0.5, 0)
 					Label.Title.Size = UDim2.new(1, -100, 0, 14)
 
-					if Icon then
-						if typeof(Icon) == 'string' and Icons then
-							local asset = getIcon(Icon)
-
-							Label.Icon.Image = 'rbxassetid://'..asset.id
-							Label.Icon.ImageRectOffset = asset.imageRectOffset
-							Label.Icon.ImageRectSize = asset.imageRectSize
-						else
-							Label.Icon.Image = getAssetUri(Icon)
-						end
-					else
-						Label.Icon.Image = "rbxassetid://" .. 0
-					end
+					local img, rectOffset, rectSize = resolveIcon(Icon)
+					Label.Icon.Image = img
+					if rectOffset then Label.Icon.ImageRectOffset = rectOffset end
+					if rectSize then Label.Icon.ImageRectSize = rectSize end
 
 					Label.Icon.Visible = true
 				end
 			end
 
-			Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+			Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
 				Label.BackgroundColor3 = IgnoreTheme and (Color or Label.BackgroundColor3) or SelectedTheme.SecondaryElementBackground
 				Label.UIStroke.Color = IgnoreTheme and (Color or Label.BackgroundColor3) or SelectedTheme.SecondaryElementStroke
 			end)
@@ -2583,7 +2635,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 				Paragraph.Content.Text = NewParagraphSettings.Content
 			end
 
-			Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+			Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
 				Paragraph.BackgroundColor3 = SelectedTheme.SecondaryElementBackground
 				Paragraph.UIStroke.Color = SelectedTheme.SecondaryElementStroke
 			end)
@@ -2622,7 +2674,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end)
 
 				if not Success then
+					TweenService:Create(Input, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Input.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Input.Title.Text = "Callback Error"
+					print("Chxlibrary | "..InputSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Input.Title.Text = InputSettings.Name
 					TweenService:Create(Input, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Input.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 				end
@@ -2663,11 +2721,11 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 			if Settings.ConfigurationSaving then
 				if Settings.ConfigurationSaving.Enabled and InputSettings.Flag then
-					RayfieldLibrary.Flags[InputSettings.Flag] = InputSettings
+					Chxlibrary.Flags[InputSettings.Flag] = InputSettings
 				end
 			end
 
-			Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+			Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
 				Input.InputFrame.BackgroundColor3 = SelectedTheme.InputBackground
 				Input.InputFrame.UIStroke.Color = SelectedTheme.InputStroke
 			end)
@@ -2856,7 +2914,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 						end)
 
 						if not Success then
+							TweenService:Create(Dropdown, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+							TweenService:Create(Dropdown.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+							Dropdown.Title.Text = "Callback Error"
+							print("Chxlibrary | "..DropdownSettings.Name.." Callback Error " ..tostring(Response))
+							warn('Check docs.sirius.menu for help with Rayfield specific development.')
 							task.wait(0.5)
+							Dropdown.Title.Text = DropdownSettings.Name
 							TweenService:Create(Dropdown, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 							TweenService:Create(Dropdown.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 						end
@@ -2887,7 +2951,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 						end
 					end)
 
-					Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+					Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
 						DropdownOption.UIStroke.Color = SelectedTheme.ElementStroke
 					end)
 				end
@@ -2902,7 +2966,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 						droption.BackgroundColor3 = SelectedTheme.DropdownSelected
 					end
 
-					Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+					Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
 						if not table.find(DropdownSettings.CurrentOption, droption.Name) then
 							droption.BackgroundColor3 = SelectedTheme.DropdownUnselected
 						else
@@ -2940,7 +3004,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 					DropdownSettings.Callback(NewOption)
 				end)
 				if not Success then
+					TweenService:Create(Dropdown, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Dropdown.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Dropdown.Title.Text = "Callback Error"
+					print("Chxlibrary | "..DropdownSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Dropdown.Title.Text = DropdownSettings.Name
 					TweenService:Create(Dropdown, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Dropdown.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 				end
@@ -2965,15 +3035,39 @@ function RayfieldLibrary:CreateWindow(Settings)
 					end
 				end
 				SetDropdownOptions()
+
+				-- Apply selected/unselected background colors to new options
+				for _, droption in ipairs(Dropdown.List:GetChildren()) do
+					if droption.ClassName == "Frame" and droption.Name ~= "Placeholder" then
+						if not table.find(DropdownSettings.CurrentOption, droption.Name) then
+							droption.BackgroundColor3 = SelectedTheme.DropdownUnselected
+						else
+							droption.BackgroundColor3 = SelectedTheme.DropdownSelected
+						end
+					end
+				end
+
+				-- If the dropdown is currently open, make new options visible immediately
+				if Dropdown.List.Visible then
+					for _, DropdownOpt in ipairs(Dropdown.List:GetChildren()) do
+						if DropdownOpt.ClassName == "Frame" and DropdownOpt.Name ~= "Placeholder" then
+							DropdownOpt.BackgroundTransparency = 0
+							DropdownOpt.Title.TextTransparency = 0
+							if not table.find(DropdownSettings.CurrentOption, DropdownOpt.Name) then
+								DropdownOpt.UIStroke.Transparency = 0
+							end
+						end
+					end
+				end
 			end
 
 			if Settings.ConfigurationSaving then
 				if Settings.ConfigurationSaving.Enabled and DropdownSettings.Flag then
-					RayfieldLibrary.Flags[DropdownSettings.Flag] = DropdownSettings
+					Chxlibrary.Flags[DropdownSettings.Flag] = DropdownSettings
 				end
 			end
 
-			Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+			Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
 				Dropdown.Toggle.ImageColor3 = SelectedTheme.TextColor
 				TweenService:Create(Dropdown, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 			end)
@@ -3026,7 +3120,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 				TweenService:Create(Keybind, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 			end)
 
-			UserInputService.InputBegan:Connect(function(input, processed)
+			local connection = UserInputService.InputBegan:Connect(function(input, processed)
 				if CheckingForKey then
 					if input.KeyCode ~= Enum.KeyCode.Unknown then
 						local SplitMessage = string.split(tostring(input.KeyCode), ".")
@@ -3055,7 +3149,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 					if not KeybindSettings.HoldToInteract then
 						local Success, Response = pcall(KeybindSettings.Callback)
 						if not Success then
+							TweenService:Create(Keybind, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+							TweenService:Create(Keybind.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+							Keybind.Title.Text = "Callback Error"
+							print("Chxlibrary | "..KeybindSettings.Name.." Callback Error " ..tostring(Response))
+							warn('Check docs.sirius.menu for help with Rayfield specific development.')
 							task.wait(0.5)
+							Keybind.Title.Text = KeybindSettings.Name
 							TweenService:Create(Keybind, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 							TweenService:Create(Keybind.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 						end
@@ -3074,6 +3174,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 					end
 				end
 			end)
+			table.insert(keybindConnections, connection)
 
 			Keybind.KeybindFrame.KeybindBox:GetPropertyChangedSignal("Text"):Connect(function()
 				TweenService:Create(Keybind.KeybindFrame, TweenInfo.new(0.55, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = UDim2.new(0, Keybind.KeybindFrame.KeybindBox.TextBounds.X + 24, 0, 30)}):Play()
@@ -3094,11 +3195,11 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 			if Settings.ConfigurationSaving then
 				if Settings.ConfigurationSaving.Enabled and KeybindSettings.Flag then
-					RayfieldLibrary.Flags[KeybindSettings.Flag] = KeybindSettings
+					Chxlibrary.Flags[KeybindSettings.Flag] = KeybindSettings
 				end
 			end
 
-			Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+			Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
 				Keybind.KeybindFrame.BackgroundColor3 = SelectedTheme.InputBackground
 				Keybind.KeybindFrame.UIStroke.Color = SelectedTheme.InputStroke
 			end)
@@ -3121,7 +3222,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 			Toggle.Title.TextTransparency = 1
 			Toggle.Switch.BackgroundColor3 = SelectedTheme.ToggleBackground
 
-			if SelectedTheme ~= RayfieldLibrary.Theme.Default then
+			if SelectedTheme ~= Chxlibrary.Theme.Default then
 				Toggle.Switch.Shadow.Visible = false
 			end
 
@@ -3179,7 +3280,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end)
 
 				if not Success then
+					TweenService:Create(Toggle, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Toggle.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Toggle.Title.Text = "Callback Error"
+					print("Chxlibrary | "..ToggleSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Toggle.Title.Text = ToggleSettings.Name
 					TweenService:Create(Toggle, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Toggle.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 				end
@@ -3223,7 +3330,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end)
 
 				if not Success then
+					TweenService:Create(Toggle, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Toggle.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Toggle.Title.Text = "Callback Error"
+					print("Chxlibrary | "..ToggleSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Toggle.Title.Text = ToggleSettings.Name
 					TweenService:Create(Toggle, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Toggle.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 				end
@@ -3236,16 +3349,16 @@ function RayfieldLibrary:CreateWindow(Settings)
 			if not ToggleSettings.Ext then
 				if Settings.ConfigurationSaving then
 					if Settings.ConfigurationSaving.Enabled and ToggleSettings.Flag then
-						RayfieldLibrary.Flags[ToggleSettings.Flag] = ToggleSettings
+						Chxlibrary.Flags[ToggleSettings.Flag] = ToggleSettings
 					end
 				end
 			end
 
 
-			Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+			Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
 				Toggle.Switch.BackgroundColor3 = SelectedTheme.ToggleBackground
 
-				if SelectedTheme ~= RayfieldLibrary.Theme.Default then
+				if SelectedTheme ~= Chxlibrary.Theme.Default then
 					Toggle.Switch.Shadow.Visible = false
 				end
 
@@ -3278,7 +3391,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 			Slider.UIStroke.Transparency = 1
 			Slider.Title.TextTransparency = 1
 
-			if SelectedTheme ~= RayfieldLibrary.Theme.Default then
+			if SelectedTheme ~= Chxlibrary.Theme.Default then
 				Slider.Main.Shadow.Visible = false
 			end
 
@@ -3291,7 +3404,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 			TweenService:Create(Slider.UIStroke, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 			TweenService:Create(Slider.Title, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {TextTransparency = 0}):Play()	
 
-			Slider.Main.Progress.Size =	UDim2.new(0, Slider.Main.AbsoluteSize.X * ((SliderSettings.CurrentValue + SliderSettings.Range[1]) / (SliderSettings.Range[2] - SliderSettings.Range[1])) > 5 and Slider.Main.AbsoluteSize.X * (SliderSettings.CurrentValue / (SliderSettings.Range[2] - SliderSettings.Range[1])) or 5, 1, 0)
+			Slider.Main.Progress.Size =	UDim2.new(0, Slider.Main.AbsoluteSize.X * ((SliderSettings.CurrentValue - SliderSettings.Range[1]) / (SliderSettings.Range[2] - SliderSettings.Range[1])) > 5 and Slider.Main.AbsoluteSize.X * ((SliderSettings.CurrentValue - SliderSettings.Range[1]) / (SliderSettings.Range[2] - SliderSettings.Range[1])) or 5, 1, 0)
 
 			if not SliderSettings.Suffix then
 				Slider.Main.Information.Text = tostring(SliderSettings.CurrentValue)
@@ -3366,7 +3479,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 								SliderSettings.Callback(NewValue)
 							end)
 							if not Success then
+								TweenService:Create(Slider, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+								TweenService:Create(Slider.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+								Slider.Title.Text = "Callback Error"
+								print("Chxlibrary | "..SliderSettings.Name.." Callback Error " ..tostring(Response))
+								warn('Check docs.sirius.menu for help with Rayfield specific development.')
 								task.wait(0.5)
+								Slider.Title.Text = SliderSettings.Name
 								TweenService:Create(Slider, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 								TweenService:Create(Slider.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 							end
@@ -3386,7 +3505,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 			function SliderSettings:Set(NewVal)
 				local NewVal = math.clamp(NewVal, SliderSettings.Range[1], SliderSettings.Range[2])
 
-				TweenService:Create(Slider.Main.Progress, TweenInfo.new(0.45, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = UDim2.new(0, Slider.Main.AbsoluteSize.X * ((NewVal + SliderSettings.Range[1]) / (SliderSettings.Range[2] - SliderSettings.Range[1])) > 5 and Slider.Main.AbsoluteSize.X * (NewVal / (SliderSettings.Range[2] - SliderSettings.Range[1])) or 5, 1, 0)}):Play()
+				TweenService:Create(Slider.Main.Progress, TweenInfo.new(0.45, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = UDim2.new(0, Slider.Main.AbsoluteSize.X * ((NewVal - SliderSettings.Range[1]) / (SliderSettings.Range[2] - SliderSettings.Range[1])) > 5 and Slider.Main.AbsoluteSize.X * ((NewVal - SliderSettings.Range[1]) / (SliderSettings.Range[2] - SliderSettings.Range[1])) or 5, 1, 0)}):Play()
 				Slider.Main.Information.Text = tostring(NewVal) .. " " .. (SliderSettings.Suffix or "")
 
 				local Success, Response = pcall(function()
@@ -3394,7 +3513,13 @@ function RayfieldLibrary:CreateWindow(Settings)
 				end)
 
 				if not Success then
+					TweenService:Create(Slider, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = Color3.fromRGB(85, 0, 0)}):Play()
+					TweenService:Create(Slider.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 1}):Play()
+					Slider.Title.Text = "Callback Error"
+					print("Chxlibrary | "..SliderSettings.Name.." Callback Error " ..tostring(Response))
+					warn('Check docs.sirius.menu for help with Rayfield specific development.')
 					task.wait(0.5)
+					Slider.Title.Text = SliderSettings.Name
 					TweenService:Create(Slider, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
 					TweenService:Create(Slider.UIStroke, TweenInfo.new(0.6, Enum.EasingStyle.Exponential), {Transparency = 0}):Play()
 				end
@@ -3407,12 +3532,12 @@ function RayfieldLibrary:CreateWindow(Settings)
 
 			if Settings.ConfigurationSaving then
 				if Settings.ConfigurationSaving.Enabled and SliderSettings.Flag then
-					RayfieldLibrary.Flags[SliderSettings.Flag] = SliderSettings
+					Chxlibrary.Flags[SliderSettings.Flag] = SliderSettings
 				end
 			end
 
-			Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
-				if SelectedTheme ~= RayfieldLibrary.Theme.Default then
+			Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+				if SelectedTheme ~= Chxlibrary.Theme.Default then
 					Slider.Main.Shadow.Visible = false
 				end
 
@@ -3425,7 +3550,7 @@ function RayfieldLibrary:CreateWindow(Settings)
 			return SliderSettings
 		end
 
-		Rayfield.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
+		Chxlibrary.Main:GetPropertyChangedSignal('BackgroundColor3'):Connect(function()
 			TabButton.UIStroke.Color = SelectedTheme.TabStroke
 
 			if Elements.UIPageLayout.CurrentPage == TabPage then
@@ -3492,19 +3617,55 @@ function RayfieldLibrary:CreateWindow(Settings)
 	end
 
 	function Window.ModifyTheme(NewTheme)
-		local success = pcall(ChangeTheme, NewTheme)
-		if not success then
-			RayfieldLibrary:Notify({Title = 'Unable to Change Theme', Content = 'We are unable find a theme on file.', Image = 4400704299})
-		else
-			RayfieldLibrary:Notify({Title = 'Theme Changed', Content = 'Successfully changed theme to '..(typeof(NewTheme) == 'string' and NewTheme or 'Custom Theme')..'.', Image = 4483362748})
-		end
+		pcall(ChangeTheme, NewTheme)
 	end
 
 	local success, result = pcall(function()
 		createSettings(Window)
 	end)
 
-	if not success then warn('Rayfield had an issue creating settings.') end
+	if not success then warn('Chxlibrary had an issue creating settings.') end
+
+	-- Report after createSettings so loadSettings() has run and usageAnalytics reflects the user's saved preference
+	if reporter and getSetting("System", "usageAnalytics") then
+		local themeName = "Default"
+		if Settings.Theme then
+			if type(Settings.Theme) == "string" then
+				themeName = Settings.Theme
+			elseif type(Settings.Theme) == "table" then
+				themeName = "Custom"
+			end
+		end
+
+		local discordInvite = nil
+		if Settings.Discord and Settings.Discord.Enabled and Settings.Discord.Invite and Settings.Discord.Invite ~= "" then
+			local raw = tostring(Settings.Discord.Invite)
+			-- Normalize: strip URL prefixes to extract just the invite code
+			discordInvite = (raw:match("discord%.gg/([%w%-]+)") or raw:match("discord%.com/invite/([%w%-]+)") or raw):sub(1, 32)
+		end
+
+		local sampleSend = false
+
+		-- Random Sampling Test
+		if not Settings.ScriptID and math.random() > 0.4 then
+			sampleSend = true
+		end
+
+		--if Settings.ScriptID then
+			reporter:windowCreated({
+				script_name        = Settings.Name or "Unknown",
+				script_version     = Release,
+				interface_version  = InterfaceBuild,
+				theme              = themeName,
+				is_mobile          = useMobileSizing and true or false,
+				has_key_system     = Settings.KeySystem and true or false,
+				discord_invite     = discordInvite,
+				config_saving      = (Settings.ConfigurationSaving and Settings.ConfigurationSaving.Enabled) and true or false,
+				script_id          = Settings.ScriptID or sampleSend and 'sid_tzfyxawonjx9' or nil,
+				verification_token = Settings.VerificationToken,
+			})
+		--end
+	end
 
 	return Window
 end
@@ -3520,19 +3681,24 @@ local function setVisibility(visibility: boolean, notify: boolean?)
 	end
 end
 
-function RayfieldLibrary:SetVisibility(visibility: boolean)
+function Chxlibrary:SetVisibility(visibility: boolean)
 	setVisibility(visibility, false)
 end
 
-function RayfieldLibrary:IsVisible(): boolean
+function Chxlibrary:IsVisible(): boolean
 	return not Hidden
 end
 
 local hideHotkeyConnection -- Has to be initialized here since the connection is made later in the script
-function RayfieldLibrary:Destroy()
+function Chxlibrary:Destroy()
 	rayfieldDestroyed = true
-	hideHotkeyConnection:Disconnect()
-	Rayfield:Destroy()
+	if hideHotkeyConnection then
+		hideHotkeyConnection:Disconnect()
+	end
+	for _, connection in keybindConnections do
+		connection:Disconnect()
+	end
+	Chxlibrary:Destroy()
 end
 
 Topbar.ChangeSize.MouseButton1Click:Connect(function()
@@ -3604,7 +3770,7 @@ if Topbar:FindFirstChild('Settings') then
 	Topbar.Settings.MouseButton1Click:Connect(function()
 		task.spawn(function()
 			for _, OtherTabButton in ipairs(TabList:GetChildren()) do
-				if OtherTabButton.Name ~= "Template" and OtherTabButton.ClassName == "Frame" and OtherTabButton ~= TabButton and OtherTabButton.Name ~= "Placeholder" then
+				if OtherTabButton.Name ~= "Template" and OtherTabButton.ClassName == "Frame" and OtherTabButton.Name ~= "Placeholder" then
 					TweenService:Create(OtherTabButton, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {BackgroundColor3 = SelectedTheme.TabBackground}):Play()
 					TweenService:Create(OtherTabButton.Title, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {TextColor3 = SelectedTheme.TabTextColor}):Play()
 					TweenService:Create(OtherTabButton.Image, TweenInfo.new(0.7, Enum.EasingStyle.Exponential), {ImageColor3 = SelectedTheme.TabTextColor}):Play()
@@ -3615,7 +3781,7 @@ if Topbar:FindFirstChild('Settings') then
 				end
 			end
 
-			Elements.UIPageLayout:JumpTo(Elements['Rayfield Settings'])
+			Elements.UIPageLayout:JumpTo(Elements['Chxlibrary Settings'])
 		end)
 	end)
 
@@ -3623,16 +3789,8 @@ end
 
 
 Topbar.Hide.MouseButton1Click:Connect(function()
-	if Debounce then return end
-	if Hidden then
-		Hidden = false
-		Unhide()
-	else
-		Hidden = true
-		Hide(true) -- เรียกใช้ฟังก์ชัน Hide โดยตรง
-	end
+	setVisibility(Hidden, not useMobileSizing)
 end)
-
 
 hideHotkeyConnection = UserInputService.InputBegan:Connect(function(input, processed)
 	if (input.KeyCode == Enum.KeyCode[getSetting("General", "rayfieldOpen")]) and not processed then
@@ -3642,7 +3800,7 @@ hideHotkeyConnection = UserInputService.InputBegan:Connect(function(input, proce
 			Unhide()
 		else
 			Hidden = true
-			Hide(true)
+			Hide()
 		end
 	end
 end)
@@ -3670,7 +3828,7 @@ for _, TopbarButton in ipairs(Topbar:GetChildren()) do
 end
 
 
-function RayfieldLibrary:LoadConfiguration()
+function Chxlibrary:LoadConfiguration()
 	local config
 
 	if debugX then
@@ -3692,20 +3850,20 @@ function RayfieldLibrary:LoadConfiguration()
 			end
 
 			if isfile then 
-				if isfile(ConfigurationFolder .. "/" .. CFileName .. ConfigurationExtension) then
-					loaded = LoadConfiguration(readfile(ConfigurationFolder .. "/" .. CFileName .. ConfigurationExtension))
+				if callSafely(isfile, ConfigurationFolder .. "/" .. CFileName .. ConfigurationExtension) then
+					loaded = LoadConfiguration(callSafely(readfile, ConfigurationFolder .. "/" .. CFileName .. ConfigurationExtension))
 				end
 			else
 				notified = true
-				RayfieldLibrary:Notify({Title = "Rayfield Configurations", Content = "We couldn't enable Configuration Saving as you are not using software with filesystem support.", Image = 4384402990})
+				Chxlibrary:Notify({Title = "Chxlibrary Configurations", Content = "We couldn't enable Configuration Saving as you are not using software with filesystem support.", Image = 4384402990})
 			end
 		end)
 
 		if success and loaded and not notified then
-			RayfieldLibrary:Notify({Title = "Rayfield Configurations", Content = "The configuration file for this script has been loaded from a previous session.", Image = 4384403532})
+			Chxlibrary:Notify({Title = "Chxlibrary", Content = "ยินดีต้อนรับ! เข้าร่วม Discord: discord.gg/uNNmgZBdnQ", Image = 4384403532})
 		elseif not success and not notified then
-			warn('Rayfield Configurations Error | '..tostring(result))
-			RayfieldLibrary:Notify({Title = "Rayfield Configurations", Content = "We've encountered an issue loading your configuration correctly.\n\nCheck the Developer Console for more information.", Image = 4384402990})
+			warn('Chxlibrary Configurations Error | '..tostring(result))
+			Chxlibrary:Notify({Title = "Chxlibrary Configurations", Content = "We've encountered an issue loading your configuration correctly.\n\nCheck the Developer Console for more information.", Image = 4384402990})
 		end
 	end
 
@@ -3719,9 +3877,9 @@ if useStudio then
 	-- Feel free to place your own script here to see how it'd work in Roblox Studio before running it on your execution software.
 
 
-	--local Window = RayfieldLibrary:CreateWindow({
-	--	Name = "Rayfield Example Window",
-	--	LoadingTitle = "Rayfield Interface Suite",
+	--local Window = Chxlibrary:CreateWindow({
+	--	Name = "Chxlibrary Example Window",
+	--	LoadingTitle = "Chxlibrary Interface Suite",
 	--	Theme = 'Default',
 	--	Icon = 0,
 	--	LoadingSubtitle = "by Sirius",
@@ -3740,9 +3898,9 @@ if useStudio then
 	--		Title = "Untitled",
 	--		Subtitle = "Key System",
 	--		Note = "No method of obtaining the key is provided",
-	--		FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+	--		FileName = "Key", -- It is recommended to use something unique as other scripts using Chxlibrary may overwrite your key file
 	--		SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
-	--		GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+	--		GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Chxlibrary to get the key from
 	--		Key = {"Hello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
 	--	}
 	--})
@@ -3789,7 +3947,7 @@ if useStudio then
 	--})
 
 
-	----RayfieldLibrary:Notify({Title = "Rayfield Interface", Content = "Welcome to Rayfield. These - are the brand new notification design for Rayfield, with custom sizing and Rayfield calculated wait times.", Image = 4483362458})
+	----Chxlibrary:Notify({Title = "Chxlibrary Interface", Content = "Welcome to Chxlibrary. These - are the brand new notification design for Chxlibrary, with custom sizing and Chxlibrary calculated wait times.", Image = 4483362458})
 
 	--local Section = Tab:CreateSection("Section Example")
 
@@ -3847,7 +4005,7 @@ if useStudio then
 	--})
 
 	--local thoptions = {}
-	--for themename, theme in pairs(RayfieldLibrary.Theme) do
+	--for themename, theme in pairs(Chxlibrary.Theme) do
 	--	table.insert(thoptions, themename)
 	--end
 
@@ -3941,7 +4099,7 @@ end
 --end
 
 task.delay(4, function()
-	RayfieldLibrary.LoadConfiguration()
+	Chxlibrary.LoadConfiguration()
 	if Main:FindFirstChild('Notice') and Main.Notice.Visible then
 		TweenService:Create(Main.Notice, TweenInfo.new(0.5, Enum.EasingStyle.Exponential, Enum.EasingDirection.InOut), {Size = UDim2.new(0, 100, 0, 25), Position = UDim2.new(0.5, 0, 0, -100), BackgroundTransparency = 1}):Play()
 		TweenService:Create(Main.Notice.Title, TweenInfo.new(0.3, Enum.EasingStyle.Exponential), {TextTransparency = 1}):Play()
@@ -3951,4 +4109,4 @@ task.delay(4, function()
 	end
 end)
 
-return RayfieldLibrary
+return Chxlibrary
